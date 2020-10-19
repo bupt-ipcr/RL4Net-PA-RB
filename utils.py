@@ -1,12 +1,24 @@
-from torch import log
-import yaml
+import json
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+import yaml
 from vvlab.envs.power_allocation import PAEnv
 
 config_path = 'config.yaml'
 default_config_path = 'default_config.yaml'
+
+
+def create_seeds():
+    init_seed = (19980615 * 19970711) % 1059999
+    seed_count = 100
+    np.random.seed(init_seed)
+    seeds = str(list(np.random.randint(9999, 1059999, seed_count)))
+    save_path = Path('seed.json')
+    with save_path.open('w') as f:
+        json.dump(seeds, f)
+    return seeds
 
 
 def get_config(path):
