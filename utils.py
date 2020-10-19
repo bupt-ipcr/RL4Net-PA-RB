@@ -46,7 +46,7 @@ def get_logdir(c1=None, c2=None) -> Path():
 
     rootdir = Path('runs') / rootdir
     if not rootdir.exists():
-        rootdir.mkdir()
+        rootdir.mkdir(parents=True)
 
     now = datetime.now()
     nowdir = '_'.join(now.ctime().split(' ')[1:-1])
