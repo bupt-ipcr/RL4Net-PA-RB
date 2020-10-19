@@ -29,6 +29,10 @@ def get_args():
     dft = {}
     for change in args.default_changes:
         key, value = change.split('=')
+        try:
+            value = int(value)
+        except:
+            pass
         dft.update({key: value})
     args.dft = dft
     # process int/float
@@ -64,8 +68,7 @@ def get_instance(diffs):
     agent = DQN(n_states, n_actions)
     # different to pa_main
     logdir = utils.get_logdir(conf, default_conf)
-    summary_writer = SummaryWriter(log_dir=logdir)
-    return env, agent, summary_writer
+    return env, agent, logdir
 
 
 if __name__ == '__main__':
