@@ -41,6 +41,7 @@ def get_logdir(c1=None, c2=None) -> Path():
     env_diffs = {
         k: v for k, v in config['env'].items()
         if config['env'].get(k) != default_config['env'].get(k, None)
+        and k != 'seed'
     }
     agent_diffs = {
         k: v for k, v in config['agent'].items()
@@ -60,8 +61,11 @@ def get_logdir(c1=None, c2=None) -> Path():
     if not rootdir.exists():
         rootdir.mkdir(parents=True)
 
+    seed = config['env']['seed']
+    seeddir = f'seed={seed}'
+
     now = datetime.now()
     nowdir = '_'.join(now.ctime().split(' ')[1:-1])
 
-    logdir = rootdir / nowdir
+    logdir = rootdir / seeddir / nowdir
     return logdir
