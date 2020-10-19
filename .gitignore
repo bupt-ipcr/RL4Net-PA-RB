@@ -3,4 +3,5 @@ runs*/
 .vscode/
 *.log
 *.err
+*.out
 .nfs*
