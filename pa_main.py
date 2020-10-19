@@ -2,18 +2,20 @@ import utils
 import numpy as np
 from pa_dqn import DQN
 from torch.utils.tensorboard import SummaryWriter
+from benckmarks import cal_benchmarks
 MAX_EPISODES = 1000
 
 
-def rl_loop(env, agent, summary_writer):
+def rl_loop(env, agent, logdir):
+    summary_writer = SummaryWriter(log_dir=logdir)
     # train
     train_his = []
     for ep in range(MAX_EPISODES):
         cur_state = env.reset()
         cur_state = cur_state.reshape((-1, env.n_states))
         done = False
+        ep_his = []
         while True:
-            cum_reward = 0
             action = agent.get_action(cur_state)[0]
             next_state, reward, done, info = env.step(action.astype(np.int32))
             next_state = next_state.reshape((-1, env.n_states))
@@ -22,14 +24,26 @@ def rl_loop(env, agent, summary_writer):
             if loss:
                 summary_writer.add_scalar('loss', loss, agent.eval_step)
             cur_state = next_state
-            cum_reward += reward/env.n_recvs
+            ep_his.append(reward/env.n_recvs)
             if done:
+                cum_reward = np.mean(ep_his)
                 summary_writer.add_scalar('reward', cum_reward, ep)
-                train_his.append(cum_reward)
+                train_his.append({'cum_reward': cum_reward, 'ep_his': ep_his})
                 if len(train_his) % 10 == 0:
                     print('EP: ', len(train_his),  'DQN:',
-                          np.mean(train_his[-10:]), flush=True)
+                          np.mean([t['cum_reward'] for t in  train_his[-10:]]), flush=True)
                 break
+    print('calculating benckmarks')
+    # find best ep_his
+    train_his.sort(key=lambda o: o['cum_reward'], reverse=True)
+    dqn_result = train_his[0]['cum_reward'], train_his[0]['ep_his']
+    results = cal_benchmarks(env)
+    result_path = logdir / 'results.log'
+    with result_path.open('w') as f:
+        for result in results:
+            f.write(result[0] + ': ' + str(result[1]) + '\r\n')
+        f.write('dqn: ' + str(dqn_result[0]) + '\r\n')
+        f.write(str(dqn_result[1]))
     print('done')
 
 
@@ -41,8 +55,7 @@ def get_instance():
     n_actions = env.n_actions
     agent = DQN(n_states, n_actions)
     logdir = utils.get_logdir()
-    summary_writer = SummaryWriter(log_dir=logdir)
-    return env, agent, summary_writer
+    return env, agent, logdir
 
 
 if __name__ == '__main__':
