@@ -51,16 +51,18 @@ def recursive_merge(origin, diffs):
 
 
 def get_instance(diffs):
-    env = utils.get_env()
-    for k, v in env.__dict__.items():
-        print(f'{k}: {v}')
+    default_conf = utils.get_config('default_config.yaml')
+    conf = deepcopy(default_conf)
+    recursive_merge(conf, diffs)
+
+    env = utils.get_env(**conf['env'])
+    for k in diffs.keys():
+        print(k, ':', env.__getattribute__(k))
+
     n_states = env.n_states
     n_actions = env.n_actions
     agent = DQN(n_states, n_actions)
     # different to pa_main
-    default_conf = utils.get_config('default_config.yaml')
-    conf = deepcopy(default_conf)
-    recursive_merge(conf, diffs)
     logdir = utils.get_logdir(conf, default_conf)
     summary_writer = SummaryWriter(log_dir=logdir)
     return env, agent, summary_writer
