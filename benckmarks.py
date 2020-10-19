@@ -84,9 +84,11 @@ def cal_benchmark(algorithm, env):
             break
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-s', '--seed', type=int, default=799345)
-args = parser.parse_args()
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--seed', type=int, default=799345)
+    args = parser.parse_args()
+    return args
 
 if __name__ == '__main__':
     from collections import namedtuple
@@ -97,6 +99,7 @@ if __name__ == '__main__':
         Algorithm('random', random_algorithm, 'action'),
         Algorithm('maximum', maximum_algorithm, 'action')
     ]
+    args = get_args()
     env = utils.get_env(seed=args.seed)
     for algorithm in algorithms:
         cal_benchmark(algorithm, env)
