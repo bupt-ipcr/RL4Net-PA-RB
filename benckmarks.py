@@ -87,7 +87,7 @@ def cal_benchmark(algorithm, env):
         s_, r, d, i = env.step(p, raw=raw)
         cum_r += r/env.n_recvs
         if d:
-            return algorithm.name, cum_r/50
+            return algorithm.name, cum_r/env.n_recvs
 
 
 def cal_benchmarks(env):
