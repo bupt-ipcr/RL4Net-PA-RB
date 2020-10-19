@@ -1,0 +1,6 @@
+runs*/
+*.pyc
+.vscode/
+*.log
+*.err
+.nfs*
