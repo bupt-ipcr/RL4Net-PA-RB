@@ -4,25 +4,41 @@ from pa_main import rl_loop
 import utils
 from torch.utils.tensorboard import SummaryWriter
 from copy import deepcopy
+import json
+
+keywords = [
+    'seed', 'n_levels',
+    'n_t_devices', 'm_r_devices', 'm_usrs', 'bs_power',
+    'R_bs', 'R_dev', 'r_bs', 'r_dev',
+    'sorter', 'metrics',
+    'gamma', 'learning_rate', 'init_epsilon', 'min_epsilon'
+]
+ranges = {
+    'n_t_devices': [3, 5, 7, 9, 11],
+    'm_r_devices': [1, 2, 3, 4, 5],
+    'm_usrs': [2, 3, 4, 5, 6],
+    'bs_power': [4, 6, 8, 10, 12],
+    'sorter': ['power', 'rate', 'fading'],
+    'metrics': [
+        ['power', 'rate', 'fading'],
+        ['power', 'fading'], ['fading'],
+    ]
+}
 
 
 def get_args():
     parser = ArgumentParser()
     parser.add_argument('-d', '--default_changes', type=str,
-                        action='append',
+                        action='append', choices=keywords,
                         default=['sorter=power'],
                         help='Default changes of default config.')
-    parser.add_argument('-k', '--key', type=str,
-                        help='Current change key',
+    parser.add_argument('-k', '--key', type=str, choices=keywords,
+                        help='Parameter(key) which changes',
                         default='metrics')
-    parser.add_argument('-v', '--values', type=float, nargs='+',
-                        help='Values of key for iteration',
-                        default=[
-                            ['power', 'rate', 'fading'],
-                            ['power'], ['rate'], ['fading'],
-                            ['power', 'rate'], ['power', 'fading'],
-                            ['rate', 'fading'],
-                        ])
+    parser.add_argument('-v', '--values', type=str,
+                        help='Values for key to range, use default if not set.'\
+                            'Example: -v "[1, 2, 3, 4 , 5]"',
+                        default='')
     args = parser.parse_args()
 
     # process default changes
@@ -35,13 +51,14 @@ def get_args():
             pass
         dft.update({key: value})
     args.dft = dft
-    # process int/float
-    values = args.values
-    if args.key != 'metrics':
-        if all(int(value) == int(value) for value in values):
-            args.values = [int(value) for value in values]
+    # process values
+    if args.values:
+        args.values = json.loads(args.values)
+    else:
+        args.values = ranges[args.key]
 
     return args
+
 
 def recursive_merge(origin, diffs):
     for key, value in diffs.items():
