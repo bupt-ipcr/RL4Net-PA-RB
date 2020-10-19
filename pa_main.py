@@ -5,9 +5,7 @@ from torch.utils.tensorboard import SummaryWriter
 MAX_EPISODES = 1000
 
 
-def rl_loop(env, agent):
-    logdir = utils.get_logdir()
-    summary_writer = SummaryWriter(log_dir=logdir)
+def rl_loop(env, agent, summary_writer):
     # train
     train_his = []
     for ep in range(MAX_EPISODES):
@@ -42,13 +40,15 @@ def get_instance():
     n_states = env.n_states
     n_actions = env.n_actions
     agent = DQN(n_states, n_actions)
-    return env, agent
+    logdir = utils.get_logdir()
+    summary_writer = SummaryWriter(log_dir=logdir)
+    return env, agent, summary_writer
 
 
 if __name__ == '__main__':
     from datetime import datetime
     start = datetime.now()
-    env, agent = get_instance()
-    rl_loop(env, agent)
+    instances = get_instance()
+    rl_loop(*instances)
     end = datetime.now()
     print('cost time:', end - start)
