@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # coding=utf-8
 """
-@author: Jiawei Wu
+@author: ,: Jiawei Wu
 @create time: 2019-12-07 20:17
-@edit time: 2020-10-19 09:22
-@FilePath: /PA/pa_dqn.py
+@edit time: ,: 2020-10-20 15:54
+@FilePath: ,: /PA/pa_dqn.py
 """
 from functools import reduce
 import numpy as np
@@ -65,9 +65,6 @@ class DQN(DQNBase):
             self.add_step(cur_state[i], action[i], reward, done, next_state[i])
 
     def get_action(self, state):
-        # epsilon update
-        self.epsilon = self.epsilon * \
-            self.epsilon_decay if self.epsilon > self.epsilon_min else self.epsilon
         # 将行向量转为列向量（1 x n_states -> n_states x 1 x 1)
         if np.random.rand() < self.epsilon:
             # 概率随机
