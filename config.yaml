@@ -11,6 +11,8 @@ env:
                 1   # consant, don't change
     m_usrs:
                 4
+    bs_power:
+                10  # dBm
     R_bs:
             5   # adjust to match n_t_devices
     R_dev:
@@ -23,7 +25,7 @@ env:
             power
     metrics:
             - power
-            - rate
+            - fading
 agent:
     gamma:
             0.0 # discount rate
