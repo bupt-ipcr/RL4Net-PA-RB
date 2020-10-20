@@ -5,3 +5,4 @@ runs*/
 *.err
 *.out
 .nfs*
+figs/
