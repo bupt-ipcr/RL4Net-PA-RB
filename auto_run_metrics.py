@@ -44,6 +44,8 @@ def get_args():
                         default='')
     parser.add_argument('-s', '--seeds', type=int,
                         help='Seed count.', default=100)
+    parser.add_argument('-c', '--card_no', type=int,
+                        help='GPU card no.', default=0)
     args = parser.parse_args()
 
     # process default changes
