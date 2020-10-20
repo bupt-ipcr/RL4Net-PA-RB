@@ -14,10 +14,10 @@ def create_seeds():
     init_seed = (19980615 * 19970711) % 1059999
     seed_count = 100
     np.random.seed(init_seed)
-    seeds = str(list(np.random.randint(9999, 1059999, seed_count)))
+    seeds = list(np.random.randint(9999, 1059999, seed_count))
     save_path = Path('seed.json')
     with save_path.open('w') as f:
-        json.dump(seeds, f)
+        json.dump(str(seeds), f)
     return seeds
 
 
