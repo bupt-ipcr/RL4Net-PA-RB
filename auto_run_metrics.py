@@ -1,21 +1,24 @@
+import json
 from argparse import ArgumentParser
+from copy import deepcopy
+
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
+import utils
 from pa_dqn import DQN
 from pa_main import rl_loop
-import utils
-from torch.utils.tensorboard import SummaryWriter
-from copy import deepcopy
-import json
 
 keywords = [
     'seed', 'n_levels',
     'n_t_devices', 'm_r_devices', 'm_usrs', 'bs_power',
     'R_bs', 'R_dev', 'r_bs', 'r_dev',
     'sorter', 'metrics',
-    'gamma', 'learning_rate', 'init_epsilon', 'min_epsilon'
+    'gamma', 'learning_rate', 'init_epsilon', 'min_epsilon',
+    'card_no'
 ]
 ranges = {
-    'n_t_devices': [3, 5, 7, 9, 11],
-    'm_r_devices': [1, 2, 3, 4, 5],
+    'n_t_devices': [9, 11, 13, 15, 17],
+    'm_r_devices': [2, 3, 4, 5, 6],
     'm_usrs': [2, 3, 4, 5, 6],
     'bs_power': [4, 6, 8, 10, 12],
     'sorter': ['power', 'rate', 'fading'],
@@ -29,22 +32,26 @@ ranges = {
 def get_args():
     parser = ArgumentParser()
     parser.add_argument('-d', '--default_changes', type=str,
-                        action='append', choices=keywords,
+                        action='append',
                         default=['sorter=power'],
                         help='Default changes of default config.')
     parser.add_argument('-k', '--key', type=str, choices=keywords,
                         help='Parameter(key) which changes',
-                        default='metrics')
+                        default='n_t_devices')
     parser.add_argument('-v', '--values', type=str,
-                        help='Values for key to range, use default if not set.'\
-                            'Example: -v "[1, 2, 3, 4 , 5]"',
+                        help='Values for key to range, use default if not set.'
+                        'Example: -v "[1, 2, 3, 4, 5]"',
                         default='')
+    parser.add_argument('-s', '--seeds', type=int,
+                        help='Seed count.', default=100)
     args = parser.parse_args()
 
     # process default changes
     dft = {}
     for change in args.default_changes:
         key, value = change.split('=')
+        if key not in keywords:
+            raise ValueError(f'Default change key should in {keywords}, but {key}')
         try:
             value = int(value)
         except:
@@ -77,12 +84,12 @@ def get_instance(diffs):
     recursive_merge(conf, diffs)
 
     env = utils.get_env(**conf['env'])
-    for k in diffs.keys():
-        print(k, ':', env.__getattribute__(k))
+    # for k in diffs.keys():
+    #     print(k, ':', env.__getattribute__(k))
 
     n_states = env.n_states
     n_actions = env.n_actions
-    agent = DQN(n_states, n_actions)
+    agent = DQN(n_states, n_actions, **conf['agent'])
     # different to pa_main
     logdir = utils.get_logdir(conf, default_conf)
     return env, agent, logdir
@@ -92,12 +99,13 @@ if __name__ == '__main__':
     args = get_args()
     key, values = args.key, args.values
     dft = args.dft
+    seeds = utils.create_seeds()
+    # iter values of key
     for value in values:
         cur = dft.copy()
-        cur.update({key: value})
-        from datetime import datetime
-        start = datetime.now()
-        instances = get_instance(cur)
-        rl_loop(*instances)
-        end = datetime.now()
-        print('cost time:', end - start)
+        # iter seeds
+        for seed in seeds[:args.seeds]:
+            cur.update({key: value})
+            cur.update({'seed': seed})
+            instances = get_instance(cur)
+            rl_loop(*instances)
