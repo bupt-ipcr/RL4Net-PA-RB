@@ -49,14 +49,14 @@ def plot_datas(datas):
     for data in all_data:
         plt.plot(data)
     plt.legend(['fp', 'wmmse', 'random', 'maximum', 'dqn'])
-    plt.savefig(f'vis.png')
+    plt.savefig(f'figs/vis.png')
     plt.cla()
 
     # for data in all_data:
     #     plt.boxplot(data)
     plt.boxplot(all_data)
     plt.legend(['fp', 'wmmse', 'random', 'maximum', 'dqn'])
-    plt.savefig(f'box.png')
+    plt.savefig(f'figs/box.png')
     plt.cla()
     
 
