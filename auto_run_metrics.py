@@ -59,6 +59,8 @@ def get_args():
         except:
             pass
         dft.update({key: value})
+    if args.card_no != 0:
+        dft['card_no'] = args.card_no
     args.dft = dft
     # process values
     if args.values:
