@@ -57,8 +57,10 @@ def get_args():
         try:
             value = int(value)
         except:
-            pass
-        dft.update({key: value})
+            try:
+                value = json.loads(value)
+            except:
+                pass
     if args.card_no != 0:
         dft['card_no'] = args.card_no
     args.dft = dft
