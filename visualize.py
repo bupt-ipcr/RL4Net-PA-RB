@@ -40,22 +40,22 @@ def get_datas(root: Path()):
 
 
 def plot_datas(datas):
+    dqn_data = np.array([o['dqn'] for o in datas])
     fp_data = np.array([o['fp'] for o in datas])
     wmmse_data = np.array([o['wmmse'] for o in datas])
     random_data = np.array([o['random'] for o in datas])
     maximum_data = np.array([o['maximum'] for o in datas])
-    dqn_data = np.array([o['dqn'] for o in datas])
-    all_data = [fp_data, wmmse_data, random_data, maximum_data, dqn_data]
+    all_data = [dqn_data, fp_data, wmmse_data, random_data, maximum_data]
     for data in all_data:
         plt.plot(data)
-    plt.legend(['fp', 'wmmse', 'random', 'maximum', 'dqn'])
+    plt.legend(['dqn', 'fp', 'wmmse', 'random', 'maximum'])
     plt.savefig(f'figs/vis.png')
     plt.cla()
 
     # for data in all_data:
     #     plt.boxplot(data)
     plt.boxplot(all_data)
-    plt.legend(['fp', 'wmmse', 'random', 'maximum', 'dqn'])
+    plt.legend(['dqn', 'fp', 'wmmse', 'random', 'maximum'])
     plt.savefig(f'figs/box.png')
     plt.cla()
     
