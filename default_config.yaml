@@ -6,7 +6,7 @@ env:
     n_t_devices:
                 9
     m_r_devices:
-                4
+                5
     n_bs:
                 1   # consant, don't change
     m_usrs:
@@ -14,9 +14,9 @@ env:
     bs_power:
                 10  # dBm
     R_bs:
-            5   # adjust to match n_t_devices
+            1   # adjust to match n_t_devices
     R_dev:
-            1
+            0.1
     r_bs:
             0.01
     r_dev:
@@ -25,6 +25,7 @@ env:
             fading
     metrics:
             - power
+            - rate
             - fading
 agent:
     gamma:
