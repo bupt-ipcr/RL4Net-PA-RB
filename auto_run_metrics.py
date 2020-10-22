@@ -17,9 +17,9 @@ keywords = [
     'card_no'
 ]
 ranges = {
-    'n_t_devices': [9, 11, 13, 15, 17],
-    'm_r_devices': [2, 3, 4, 5, 6],
-    'm_usrs': [2, 3, 4, 5, 6],
+    'n_t_devices': [9, 10, 11, 12, 13],
+    'm_r_devices': [5, 6, 7, 8, 9],
+    'm_usrs': [4, 5, 6, 7, 8],
     'bs_power': [4, 6, 8, 10, 12],
     'sorter': ['power', 'rate', 'fading'],
     'metrics': [
@@ -46,6 +46,8 @@ def get_args():
                         help='Seed count.', default=100)
     parser.add_argument('-c', '--card_no', type=int,
                         help='GPU card no.', default=0)
+    parser.add_argument('-i', '--ignore', action='store_true',
+                        help='Ignore processed seed.', default=True)
     args = parser.parse_args()
 
     # process default changes
@@ -101,6 +103,23 @@ def get_instance(diffs):
     logdir = utils.get_logdir(conf, default_conf)
     return env, agent, logdir
 
+def check_exist(env, agent, logdir):
+    # check if logdir has result.log
+    parent = logdir.parent
+    if parent.exists():
+        for train_dir in parent.iterdir():
+            for train_file in train_dir.iterdir():
+                if train_file.name == "results.log":
+                    return True
+        # clear
+        for train_dir in parent.iterdir():
+            for train_file in train_dir.iterdir():
+                pass
+                # train_file.unlink()
+            # train_dir.rmdir()
+            print(f'{train_dir}.rmdir()')
+    return False
+        
 
 if __name__ == '__main__':
     args = get_args()
@@ -115,4 +134,7 @@ if __name__ == '__main__':
             cur.update({key: value})
             cur.update({'seed': seed})
             instances = get_instance(cur)
-            rl_loop(*instances)
+            if args.ignore:
+                if not check_exist(*instances):
+                    continue
+                rl_loop(*instances)
