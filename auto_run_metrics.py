@@ -61,6 +61,7 @@ def get_args():
                 value = json.loads(value)
             except:
                 pass
+        dft[key] = value
     if args.card_no != 0:
         dft['card_no'] = args.card_no
     args.dft = dft
