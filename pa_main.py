@@ -16,7 +16,7 @@ def rl_loop(env, agent, logdir):
         cur_state = cur_state.reshape((-1, env.n_states))
         done = False
         ep_his = []
-        env.epsilon = max((DECAY_THRES - ep) / DECAY_THRES, 0.001)
+        agent.epsilon = max((DECAY_THRES - ep) / DECAY_THRES, 0.001)
         while True:
             action = agent.get_action(cur_state)[0]
             next_state, reward, done, info = env.step(action.astype(np.int32))
