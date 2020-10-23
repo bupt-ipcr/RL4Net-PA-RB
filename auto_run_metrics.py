@@ -114,9 +114,11 @@ def check_exist(env, agent, logdir):
         # clear
         for train_dir in parent.iterdir():
             for train_file in train_dir.iterdir():
-                pass
-                # train_file.unlink()
-            # train_dir.rmdir()
+                train_file.unlink()
+            try:
+                train_dir.rmdir()
+            except:
+                print(f'{train_dir}.rmdir() failed')
             print(f'{train_dir}.rmdir()')
     return False
         
@@ -135,6 +137,6 @@ if __name__ == '__main__':
             cur.update({'seed': seed})
             instances = get_instance(cur)
             if args.ignore:
-                if not check_exist(*instances):
+                if check_exist(*instances):
                     continue
-                rl_loop(*instances)
+            rl_loop(*instances)
