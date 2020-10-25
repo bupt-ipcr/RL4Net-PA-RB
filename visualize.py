@@ -7,12 +7,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from tqdm import tqdm
 
 
 here = Path()
 figs = here / 'figs'
-if not figs.exists():
-    figs.mkdir(parents=True)
+
+
+def check_and_savefig(path: Path()):
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+    plt.savefig(path)
 
 
 def get_args():
@@ -60,7 +65,7 @@ def get_all_data():
         except:
             pass
     all_data = []
-    for logdir in runsdir.iterdir():
+    for logdir in tqdm(list(runsdir.iterdir()), desc="Gathering all data"):
         conf = config.copy()
         if logdir.name == 'default':
             pass
@@ -77,7 +82,9 @@ def get_all_data():
         datas = get_datas(logdir)
         for data in datas:
             data.update(conf)
-            data['sum_rate'] = data['rate'] * (conf['n_t_devices'] * conf['m_r_devices'] + conf['n_bs'] * conf['m_usrs'])
+            data['sum_rate'] = data['rate'] * \
+                (conf['n_t_devices'] * conf['m_r_devices'] +
+                 conf['n_bs'] * conf['m_usrs'])
         all_data.extend(datas)
     return pd.DataFrame(all_data)
 
@@ -104,15 +111,19 @@ def plot_datas(datas, suffix=''):
     plt.cla()
 
 
-def plot_all():
-    all_data = get_all_data()
-    for key in ['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power']:
+def plot_box(all_data):
+    for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power'], desc="Ploting"):
         for aim in ['rate', 'sum_rate']:
             plt.figure(figsize=(15, 10))
             ax = sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
-                            data=all_data, palette="Set3", showfliers=False)
-            plt.savefig(f'figs/box-{aim}-{key}.png')
+                             data=all_data, palette="Set3", showfliers=False)
+            check_and_savefig(figs / f'box/{aim}-{key}.png')
             plt.cla()
+
+
+def plot_all():
+    all_data = get_all_data()
+    plot_box(all_data)
 
 
 if __name__ == "__main__":
