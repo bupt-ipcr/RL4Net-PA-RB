@@ -86,29 +86,6 @@ def get_all_data():
         all_data.extend(datas)
     return pd.DataFrame(all_data)
 
-
-def plot_datas(datas, suffix=''):
-    dqn_data = np.array([o['dqn'] for o in datas])
-    fp_data = np.array([o['fp'] for o in datas])
-    wmmse_data = np.array([o['wmmse'] for o in datas])
-    random_data = np.array([o['random'] for o in datas])
-    maximum_data = np.array([o['maximum'] for o in datas])
-    all_data = [dqn_data, fp_data, wmmse_data, random_data, maximum_data]
-    for data in all_data:
-        try:
-            plt.plot(data)
-        except:
-            print(data)
-    plt.legend(['dqn', 'fp', 'wmmse', 'random', 'maximum'])
-    plt.savefig(f'figs/vis{suffix}.png')
-    plt.cla()
-
-    plt.boxplot(all_data)
-    plt.legend(['dqn', 'fp', 'wmmse', 'random', 'maximum'])
-    plt.savefig(f'figs/box{suffix}.png')
-    plt.cla()
-
-
 def plot_box(all_data):
     for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power'], desc="Ploting"):
         for aim in ['rate', 'sum_rate']:
