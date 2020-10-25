@@ -28,27 +28,25 @@ def get_args():
     return args
 
 
-def get_data(path: Path()):
-    data = []
-    with path.open() as f:
-        for line in f.readlines():
-            if re.match(r'^[a-z]+: [\d.]+$', line):
-                algorithm, rate = line.split(': ')
-                rate = float(rate)
-                data.append({
-                    'algorithm': algorithm,
-                    'rate': rate
-                })
-    return data
-
-
 def get_datas(directory: Path()):
     datas = []
     for path in directory.iterdir():
         if path.is_dir():
-            datas.extend(get_datas(path))
+            sub_datas = get_datas(path)
         elif path.name == 'results.log':
-            datas.extend(get_data(path))
+            sub_datas = []
+            with path.open() as f:
+                for line in f.readlines():
+                    if re.match(r'^[a-z]+: [\d.]+$', line):
+                        algorithm, rate = line.split(': ')
+                        rate = float(rate)
+                        sub_datas.append({
+                            'algorithm': algorithm,
+                            'rate': rate
+                        })
+        else:
+            sub_datas = []
+        datas.extend(sub_datas)
     return datas
 
 
