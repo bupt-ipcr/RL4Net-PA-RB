@@ -135,7 +135,7 @@ def plot_cdf(all_data):
             fig = plt.figure(figsize=(15, 10))
             cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
             ) if k in valid_keys and k != key))
-            sns.displot(data=all_data[cur_index], x="rate", kind="ecdf", hue="algorithm", hue_order=[
+            sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
                         'dqn', 'fp', 'wmmse', 'maximum', 'random'],)
             check_and_savefig(figs / f'cdf/{aim}-{key}.png')
             plt.close()
