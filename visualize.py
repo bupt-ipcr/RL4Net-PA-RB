@@ -14,6 +14,21 @@ here = Path()
 figs = here / 'figs'
 
 
+def get_default_config():
+    dft_config = utils.get_config('default_config.yaml')
+    config = dft_config['env']
+    agent_config = dft_config['agent']
+    config.update(agent_config)
+    for k, v in config.items():
+        if isinstance(v, list):
+            config[k] = '+'.join(v)
+        try:
+            config[k] = int(v)
+        except:
+            pass
+    return config
+
+
 def check_and_savefig(path: Path()):
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
@@ -53,15 +68,7 @@ def get_datas(directory: Path()):
 def get_all_data():
     args = get_args()
     runsdir = here / args.dir
-    dft_config = utils.get_config('default_config.yaml')
-    config = dft_config['env']
-    for k, v in config.items():
-        if isinstance(v, list):
-            config[k] = '+'.join(v)
-        try:
-            config[k] = int(v)
-        except:
-            pass
+    config = get_default_config()
     all_data = []
     for logdir in tqdm(list(runsdir.iterdir()), desc="Gathering all data"):
         conf = config.copy()
@@ -90,7 +97,7 @@ def get_all_data():
 def plot_box(all_data):
     from functools import reduce
     from operator import and_
-    dft_config = utils.get_config('default_config.yaml')['env']
+    dft_config = get_default_config()
     for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'], desc="Ploting"):
         for aim in ['rate', 'sum_rate']:
             fig = plt.figure(figsize=(15, 10))
