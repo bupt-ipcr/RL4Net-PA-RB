@@ -6,3 +6,6 @@ runs*/
 *.out
 .nfs*
 figs/
+*.ipynb
+all_data.pickle
+seed.json
