@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 here = Path()
 figs = here / 'figs'
+valid_keys = ['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size']
 
 
 def get_default_config():
@@ -98,11 +99,11 @@ def plot_box(all_data):
     from functools import reduce
     from operator import and_
     dft_config = get_default_config()
-    for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'], desc="Ploting Box"):
+    for key in tqdm(valid_keys, desc="Ploting Box"):
         for aim in ['rate', 'sum_rate']:
             fig = plt.figure(figsize=(15, 10))
-            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items() if k in [
-                'm_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'] and k != key))
+            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+            ) if k in valid_keys and k != key))
             sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
                         data=all_data[cur_index], palette="Set3", showfliers=False)
             check_and_savefig(figs / f'box/{aim}-{key}.png')
@@ -113,11 +114,11 @@ def plot_cdf(all_data):
     from functools import reduce
     from operator import and_
     dft_config = get_default_config()
-    for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'], desc="Ploting CDF"):
+    for key in tqdm(valid_keys, desc="Ploting CDF"):
         for aim in ['rate', 'sum_rate']:
             fig = plt.figure(figsize=(15, 10))
-            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items() if k in [
-                'm_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'] and k != key))
+            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+            ) if k in valid_keys and k != key))
             sns.displot(data=all_data[cur_index], x="rate", kind="ecdf", hue="algorithm", hue_order=[
                         'dqn', 'fp', 'wmmse', 'maximum', 'random'],)
             check_and_savefig(figs / f'cdf/{aim}-{key}.png')
