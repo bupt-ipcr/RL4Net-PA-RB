@@ -14,7 +14,7 @@ keywords = [
     'R_bs', 'R_dev', 'r_bs', 'r_dev',
     'sorter', 'metrics',
     'gamma', 'learning_rate', 'init_epsilon', 'min_epsilon',
-    'card_no'
+    'batch_size', 'card_no'
 ]
 ranges = {
     'n_t_devices': [9, 10, 11, 12, 13],
