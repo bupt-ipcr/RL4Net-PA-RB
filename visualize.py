@@ -48,7 +48,7 @@ def get_args():
                         help='Whether to plot cdf.')
     parser.add_argument('--all', action='store_true',
                         help='Whether to plot all.')
-    args = parser.parse_args(args=[])
+    args = parser.parse_args()
     if not any(arg[1] for arg in args._get_kwargs() if arg[0] not in {'dir', 'reload'}):
         args.all = True
     return args
