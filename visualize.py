@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
-
+import pickle
 
 here = Path()
 figs = here / 'figs'
@@ -73,24 +73,21 @@ def get_all_data():
     all_data = []
     for logdir in tqdm(list(runsdir.iterdir()), desc="Gathering all data"):
         conf = config.copy()
-        if logdir.name == 'default':
-            pass
-        else:
+        n_recvs = conf['n_t_devices'] * conf['m_r_devices'] +\
+            conf['n_bs'] * conf['m_usrs']
+        if logdir.name != 'default':
             changes = logdir.name.split('&')
             for change in changes:
                 key, value = change.split('=')
-                if key == 'card_no':
-                    continue
-                try:
-                    conf[key] = int(value)
-                except:
-                    conf[key] = value
+                if key != 'card_no':
+                    try:
+                        conf[key] = int(value)
+                    except:
+                        conf[key] = value
         datas = get_datas(logdir)
         for data in datas:
             data.update(conf)
-            data['sum_rate'] = data['rate'] * \
-                (conf['n_t_devices'] * conf['m_r_devices'] +
-                 conf['n_bs'] * conf['m_usrs'])
+            data['sum_rate'] = data['rate'] * n_recvs
         all_data.extend(datas)
     return pd.DataFrame(all_data)
 
