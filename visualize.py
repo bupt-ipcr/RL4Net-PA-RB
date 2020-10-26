@@ -40,6 +40,8 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument('-d', '--dir', type=str, default='runs',
                         help='Directory to visualize.')
+    parser.add_argument('-r', '--reload', action='store_true',
+                        help='Force to reload data.')
     args = parser.parse_args(args=[])
     return args
 
@@ -69,6 +71,13 @@ def get_datas(directory: Path()):
 def get_all_data():
     args = get_args()
     runsdir = here / args.dir
+    # try to load data from pickle
+    save_file = here / 'all_data.pickle'
+    if not args.reload and save_file.exists():
+        with save_file.open('rb') as f:
+            all_data = pickle.load(f)
+            print('Load data from pickle.')
+            return all_data
     config = get_default_config()
     all_data = []
     for logdir in tqdm(list(runsdir.iterdir()), desc="Gathering all data"):
@@ -89,7 +98,10 @@ def get_all_data():
             data.update(conf)
             data['sum_rate'] = data['rate'] * n_recvs
         all_data.extend(datas)
-    return pd.DataFrame(all_data)
+    # save
+    all_data = pd.DataFrame(all_data)
+    all_data.to_pickle(str(save_file))
+    return all_data
 
 
 def plot_box(all_data):
