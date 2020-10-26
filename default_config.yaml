@@ -38,3 +38,5 @@ agent:
             0.01
     card_no:
             0
+    batch_size:
+            256
