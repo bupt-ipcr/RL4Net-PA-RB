@@ -24,7 +24,7 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument('-d', '--dir', type=str, default='runs',
                         help='Directory to visualize.')
-    args = parser.parse_args()
+    args = parser.parse_args(args=[])
     return args
 
 
@@ -86,14 +86,20 @@ def get_all_data():
         all_data.extend(datas)
     return pd.DataFrame(all_data)
 
+
 def plot_box(all_data):
-    for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power'], desc="Ploting"):
+    from functools import reduce
+    from operator import and_
+    dft_config = utils.get_config('default_config.yaml')['env']
+    for key in tqdm(['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'], desc="Ploting"):
         for aim in ['rate', 'sum_rate']:
-            plt.figure(figsize=(15, 10))
-            ax = sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
-                             data=all_data, palette="Set3", showfliers=False)
+            fig = plt.figure(figsize=(15, 10))
+            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items() if k in [
+                'm_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size'] and k != key))
+            sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
+                        data=all_data[cur_index], palette="Set3", showfliers=False)
             check_and_savefig(figs / f'box/{aim}-{key}.png')
-            plt.cla()
+            plt.close()
 
 
 def plot_all():
