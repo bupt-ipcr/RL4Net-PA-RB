@@ -42,7 +42,15 @@ def get_args():
                         help='Directory to visualize.')
     parser.add_argument('-r', '--reload', action='store_true',
                         help='Force to reload data.')
+    parser.add_argument('--box', action='store_true',
+                        help='Whether to plot box.')
+    parser.add_argument('--cdf', action='store_true',
+                        help='Whether to plot cdf.')
+    parser.add_argument('--all', action='store_true',
+                        help='Whether to plot all.')
     args = parser.parse_args(args=[])
+    if not any(arg[1] for arg in args._get_kwargs() if arg[0] not in {'dir', 'reload'}):
+        args.all = True
     return args
 
 
@@ -68,8 +76,7 @@ def get_datas(directory: Path()):
     return datas
 
 
-def get_all_data():
-    args = get_args()
+def get_all_data(args):
     runsdir = here / args.dir
     # try to load data from pickle
     save_file = here / 'all_data.pickle'
@@ -134,11 +141,14 @@ def plot_cdf(all_data):
             plt.close()
 
 
-def plot_all():
-    all_data = get_all_data()
-    plot_box(all_data)
-    plot_cdf(all_data)
+def plot_all(args):
+    all_data = get_all_data(args)
+    if args.all or args.box:
+        plot_box(all_data)
+    if args.all or args.cdf:
+        plot_cdf(all_data)
 
 
 if __name__ == "__main__":
-    plot_all()
+    args = get_args()
+    plot_all(args)
