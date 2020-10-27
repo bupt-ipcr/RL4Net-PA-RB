@@ -1,5 +1,8 @@
+from inspect import isfunction
 import json
 import re
+
+from matplotlib.pyplot import plot
 import utils
 from argparse import ArgumentParser
 from pathlib import Path
@@ -13,6 +16,13 @@ import pickle
 here = Path()
 figs = here / 'figs'
 valid_keys = ['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size']
+
+plot_funcs = {}
+
+
+def register(func):
+    plot_funcs[func.__name__[5:]] = func
+    return func
 
 
 def get_default_config():
@@ -37,19 +47,14 @@ def check_and_savefig(path: Path()):
 
 
 def get_args():
-    parser = ArgumentParser()
+    parser = ArgumentParser(description='Params for ploting.')
     parser.add_argument('-d', '--dir', type=str, default='runs',
                         help='Directory to visualize.')
     parser.add_argument('-r', '--reload', action='store_true',
                         help='Force to reload data.')
-    parser.add_argument('--box', action='store_true',
-                        help='Whether to plot box.')
-    parser.add_argument('--cdf', action='store_true',
-                        help='Whether to plot cdf.')
-    parser.add_argument('--avg', action='store_true',
-                        help='Whether to plot avg.')
-    parser.add_argument('--all', action='store_true',
-                        help='Whether to plot all.')
+    for name, func in plot_funcs.items():
+        parser.add_argument(f'--{name}', action='store_true',
+                            help=f'Whether to plot {name}.')
     args = parser.parse_args()
     if not any(arg[1] for arg in args._get_kwargs() if arg[0] not in {'dir', 'reload'}):
         args.all = True
@@ -115,6 +120,7 @@ def get_all_data(args):
     return all_data
 
 
+@register
 def plot_box(all_data):
     from functools import reduce
     from operator import and_
@@ -127,9 +133,10 @@ def plot_box(all_data):
             sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
                         data=all_data[cur_index], palette="Set3", showfliers=False)
             check_and_savefig(figs / f'box/{aim}-{key}.png')
-            plt.close()
+            plt.close(fig)
 
 
+@register
 def plot_cdf(all_data):
     from functools import reduce
     from operator import and_
@@ -142,9 +149,10 @@ def plot_cdf(all_data):
             sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
                         'dqn', 'fp', 'wmmse', 'maximum', 'random'],)
             check_and_savefig(figs / f'cdf/{aim}-{key}.png')
-            plt.close()
+            plt.close(fig)
 
 
+@register
 def plot_avg(all_data):
     from functools import reduce
     from operator import and_
@@ -159,19 +167,21 @@ def plot_avg(all_data):
                                          'maximum', 'random'],
                               style="algorithm", markers=True, dashes=False)
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
-            plt.close()
+            plt.close(fig)
 
 
-def plot_all(args):
-    all_data = get_all_data(args)
-    if args.all or args.box:
-        plot_box(all_data)
-    if args.all or args.cdf:
-        plot_cdf(all_data)
-    if args.all or args.avg:
-        plot_avg(all_data)
+@register
+def plot_all(all_data):
+    for name, func in plot_funcs.items():
+        if name != 'all':
+            func(all_data)
 
 
 if __name__ == "__main__":
     args = get_args()
-    plot_all(args)
+    all_data = get_all_data(args)
+    for attr in dir(args):
+        if not attr.startswith('_') and args.__getattribute__(attr):
+            func = plot_funcs.get(attr, None)
+            if func:
+                func(all_data)
