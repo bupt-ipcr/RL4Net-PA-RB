@@ -46,6 +46,8 @@ def get_args():
                         help='Whether to plot box.')
     parser.add_argument('--cdf', action='store_true',
                         help='Whether to plot cdf.')
+    parser.add_argument('--avg', action='store_true',
+                        help='Whether to plot avg.')
     parser.add_argument('--all', action='store_true',
                         help='Whether to plot all.')
     args = parser.parse_args()
@@ -97,13 +99,15 @@ def get_all_data(args):
                 key, value = change.split('=')
                 if key != 'card_no':
                     try:
-                        conf[key] = int(value)
+                        conf[key] = float(value)
                     except:
                         conf[key] = value
         datas = get_datas(logdir)
         for data in datas:
             data.update(conf)
             data['sum_rate'] = data['rate'] * n_recvs
+        if not 2 < conf['bs_power'] < 40:
+            continue
         all_data.extend(datas)
     # save
     all_data = pd.DataFrame(all_data)
@@ -141,12 +145,31 @@ def plot_cdf(all_data):
             plt.close()
 
 
+def plot_avg(all_data):
+    from functools import reduce
+    from operator import and_
+    dft_config = get_default_config()
+    for key in tqdm(valid_keys, desc="Ploting AVG"):
+        for aim in ['rate', 'sum_rate']:
+            fig = plt.figure(figsize=(15, 10))
+            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+            ) if k in valid_keys and k != key))
+            ax = sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
+                              hue_order=['dqn', 'fp', 'wmmse',
+                                         'maximum', 'random'],
+                              style="algorithm", markers=True, dashes=False)
+            check_and_savefig(figs / f'avg/{aim}-{key}.png')
+            plt.close()
+
+
 def plot_all(args):
     all_data = get_all_data(args)
     if args.all or args.box:
         plot_box(all_data)
     if args.all or args.cdf:
         plot_cdf(all_data)
+    if args.all or args.avg:
+        plot_avg(all_data)
 
 
 if __name__ == "__main__":
