@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from tqdm import tqdm
+from tqdm import tqdm, trange
 import pickle
 
 here = Path()
@@ -165,9 +165,52 @@ def plot_avg(all_data):
             ax = sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
                               hue_order=['dqn', 'fp', 'wmmse',
                                          'maximum', 'random'],
-                              style="algorithm", markers=True, dashes=False)
+                              style="algorithm", markers=True, dashes=False, ci=None)
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
             plt.close(fig)
+
+
+@register
+def plot_env(*args):
+    seed = 312691
+    env = utils.get_env(seed=seed, n_t_devices=3,
+                        m_r_devices=4, m_usrs=4, R_dev=0.25)
+    import matplotlib.patches as mpatches
+
+    def cir_edge(center, radius, color):
+        patch = mpatches.Circle(center, radius, fc='white', ec=color, ls='--')
+        return patch
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.set_xlim(-1.2, 1.2)
+    ax.set_ylim(-1.2, 1.2)
+
+    # draw d2d pairs
+    for t_idx, pair in env.devices.items():
+        t, rs = pair['t_device'], pair['r_devices']
+        # draw edge
+        ax.add_patch(cir_edge((t.x, t.y), env.R_dev, 'green'))
+        # draw t device
+        ax.scatter([t.x], [t.y], marker='s', s=100, c='green', zorder=10)
+        # draw r devices
+        for r_idx, r in rs.items():
+            ax.scatter([r.x], [r.y], marker='o', s=60, c='green', zorder=10)
+
+    # draw cell and bs
+    cell_xs = env.R_bs * \
+        np.array([0, np.sqrt(3)/2, np.sqrt(3)/2,
+                0, -np.sqrt(3)/2, -np.sqrt(3)/2, 0])
+    cell_ys = env.R_bs * np.array([1, .5, -.5, -1, -.5, .5, 1])
+    ax.plot(cell_xs, cell_ys, color='black')
+
+    ax.scatter([0.0], [0.0], marker='^', s=100, c='blue', zorder=30)
+    # draw usrs
+    for idx, usr in env.users.items():
+        ax.scatter([usr.x], [usr.y], marker='x', s=100, c='orange', zorder=20)
+        ax.plot([0, usr.x], [0, usr.y], ls='--', c='blue', zorder=20)
+
+    check_and_savefig(figs / f'env/{seed}.png')
+    plt.close(fig)
 
 
 @register
