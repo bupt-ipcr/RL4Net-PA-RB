@@ -151,9 +151,6 @@ def plot_cdf(all_data):
             ) if k in valid_keys and k != key))
             sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
                         'dqn', 'fp', 'wmmse', 'maximum', 'random'])
-            if key == 'bs_power':
-                plt.xlabel(f'{key}/W')
-            plt.ylabel(f'Average {aim}(bps/Hz)')
             check_and_savefig(figs / f'cdf/{aim}-{key}.png')
             plt.close(fig)
 
@@ -178,6 +175,39 @@ def plot_avg(all_data):
             plt.ylabel(f'Average {aim}(bps/Hz)')
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
             plt.close(fig)
+
+
+@register
+def plot_sbp(all_data):
+    """Plot sum bs power"""
+    from functools import reduce
+    from operator import and_
+    all_data['sum_bs_power'] = all_data['bs_power'] * all_data['m_usrs']
+    dft_config = get_default_config()
+    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+    ) if k in valid_keys and k not in {'m_usrs', 'bs_power', 'total_bs_power'}))
+    key = 'sum_bs_power'
+    for aim in tqdm(['rate', 'sum_rate'], desc='Ploting SBP'):
+        fig = plt.figure(figsize=(15, 10))
+        sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
+                    data=all_data[cur_index], palette="Set3", showfliers=False)
+        check_and_savefig(figs / f'box/{aim}-{key}.png')
+        plt.close(fig)
+
+        fig = plt.figure(figsize=(15, 10))
+        sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
+            'dqn', 'fp', 'wmmse', 'maximum', 'random'])
+        check_and_savefig(figs / f'cdf/{aim}-{key}.png')
+        plt.close(fig)
+
+        fig = plt.figure(figsize=(15, 10))
+        sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
+                     hue_order=['dqn', 'fp', 'wmmse',
+                                'maximum', 'random'],
+                     style="algorithm", markers=True, dashes=False, ci=None)
+        plt.xticks(sorted(list(set(all_data[cur_index][key]))))
+        check_and_savefig(figs / f'avg/{aim}-{key}.png')
+        plt.close(fig)
 
 
 @register
@@ -209,7 +239,7 @@ def plot_env(*args):
     # draw cell and bs
     cell_xs = env.R_bs * \
         np.array([0, np.sqrt(3)/2, np.sqrt(3)/2,
-                0, -np.sqrt(3)/2, -np.sqrt(3)/2, 0])
+                  0, -np.sqrt(3)/2, -np.sqrt(3)/2, 0])
     cell_ys = env.R_bs * np.array([1, .5, -.5, -1, -.5, .5, 1])
     ax.plot(cell_xs, cell_ys, color='black')
 
