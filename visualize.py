@@ -144,15 +144,14 @@ def plot_cdf(all_data):
     from functools import reduce
     from operator import and_
     dft_config = get_default_config()
-    for key in tqdm(valid_keys, desc="Ploting CDF"):
-        for aim in ['rate', 'sum_rate']:
-            fig = plt.figure(figsize=(15, 10))
-            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-            ) if k in valid_keys and k != key))
-            sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
-                        'dqn', 'fp', 'wmmse', 'maximum', 'random'])
-            check_and_savefig(figs / f'cdf/{aim}-{key}.png')
-            plt.close(fig)
+    for aim in tqdm(['rate', 'sum_rate'], desc="Ploting CDF"):
+        fig = plt.figure(figsize=(15, 10))
+        cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+        ) if k in valid_keys and k != 'batch_size'))
+        sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
+                    'dqn', 'fp', 'wmmse', 'maximum', 'random'])
+        check_and_savefig(figs / f'cdf/{aim}.png')
+        plt.close(fig)
 
 
 @register
@@ -192,12 +191,6 @@ def plot_sbp(all_data):
         sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
                     data=all_data[cur_index], palette="Set3", showfliers=False)
         check_and_savefig(figs / f'box/{aim}-{key}.png')
-        plt.close(fig)
-
-        fig = plt.figure(figsize=(15, 10))
-        sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
-            'dqn', 'fp', 'wmmse', 'maximum', 'random'])
-        check_and_savefig(figs / f'cdf/{aim}-{key}.png')
         plt.close(fig)
 
         fig = plt.figure(figsize=(15, 10))
