@@ -132,6 +132,9 @@ def plot_box(all_data):
             ) if k in valid_keys and k != key))
             sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
                         data=all_data[cur_index], palette="Set3", showfliers=False)
+            if key == 'bs_power':
+                plt.xlabel(f'{key}/W')
+            plt.ylabel(f'Average {aim}(bps/Hz)')
             check_and_savefig(figs / f'box/{aim}-{key}.png')
             plt.close(fig)
 
@@ -147,7 +150,10 @@ def plot_cdf(all_data):
             cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
             ) if k in valid_keys and k != key))
             sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
-                        'dqn', 'fp', 'wmmse', 'maximum', 'random'],)
+                        'dqn', 'fp', 'wmmse', 'maximum', 'random'])
+            if key == 'bs_power':
+                plt.xlabel(f'{key}/W')
+            plt.ylabel(f'Average {aim}(bps/Hz)')
             check_and_savefig(figs / f'cdf/{aim}-{key}.png')
             plt.close(fig)
 
@@ -166,6 +172,10 @@ def plot_avg(all_data):
                               hue_order=['dqn', 'fp', 'wmmse',
                                          'maximum', 'random'],
                               style="algorithm", markers=True, dashes=False, ci=None)
+            plt.xticks(sorted(list(set(all_data[cur_index][key]))))
+            if key == 'bs_power':
+                plt.xlabel(f'{key}/W')
+            plt.ylabel(f'Average {aim}(bps/Hz)')
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
             plt.close(fig)
 
