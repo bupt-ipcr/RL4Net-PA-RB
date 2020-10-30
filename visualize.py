@@ -25,6 +25,21 @@ def register(func):
     return func
 
 
+def get_args():
+    parser = ArgumentParser(description='Params for ploting.')
+    parser.add_argument('-d', '--dir', type=str, default='runs',
+                        help='Directory to visualize.')
+    parser.add_argument('-r', '--reload', action='store_true',
+                        help='Force to reload data.')
+    for name, func in plot_funcs.items():
+        parser.add_argument(f'--{name}', action='store_true',
+                            help=f'Whether to plot {name}.')
+    args = parser.parse_args()
+    if not any(arg[1] for arg in args._get_kwargs() if arg[0] not in {'dir', 'reload'}):
+        args.all = True
+    return args
+
+
 def get_default_config():
     dft_config = utils.get_config('default_config.yaml')
     config = dft_config['env']
@@ -40,25 +55,46 @@ def get_default_config():
     return config
 
 
+def lineplot(data, key, aim):
+    dft_config = get_default_config()
+    from functools import reduce
+    from operator import and_
+    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+    ) if k in valid_keys and k != key))
+    plt.xticks(sorted(list(set(data[key]))))
+    sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
+                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                 style="algorithm", markers=True, dashes=False, ci=None)
+    if key == 'bs_power':
+        plt.xlabel(f'{key}/W')
+    plt.ylabel(f'Average {aim}(bps/Hz)')
+
+
+def displot(data, key, aim):
+    sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
+                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                height=5, aspect=2, facet_kws=dict(legend_out=False))
+
+
+def boxplot(data, key, aim):
+    dft_config = get_default_config()
+    from functools import reduce
+    from operator import and_
+    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+    ) if k in valid_keys and k != key))
+    plt.xticks(sorted(list(set(data[key]))))
+    sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
+                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                palette="Set3", showfliers=False)
+    if key == 'bs_power':
+        plt.xlabel(f'{key}/W')
+    plt.ylabel(f'Average {aim}(bps/Hz)')
+
+
 def check_and_savefig(path: Path()):
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
     plt.savefig(path)
-
-
-def get_args():
-    parser = ArgumentParser(description='Params for ploting.')
-    parser.add_argument('-d', '--dir', type=str, default='runs',
-                        help='Directory to visualize.')
-    parser.add_argument('-r', '--reload', action='store_true',
-                        help='Force to reload data.')
-    for name, func in plot_funcs.items():
-        parser.add_argument(f'--{name}', action='store_true',
-                            help=f'Whether to plot {name}.')
-    args = parser.parse_args()
-    if not any(arg[1] for arg in args._get_kwargs() if arg[0] not in {'dir', 'reload'}):
-        args.all = True
-    return args
 
 
 def get_datas(directory: Path()):
@@ -254,42 +290,6 @@ def plot_env(*args):
 
     check_and_savefig(figs / f'env/{seed}.png')
     plt.close(fig)
-
-
-def lineplot(data, key, aim):
-    dft_config = get_default_config()
-    from functools import reduce
-    from operator import and_
-    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-    ) if k in valid_keys and k != key))
-    plt.xticks(sorted(list(set(data[key]))))
-    sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
-                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                 style="algorithm", markers=True, dashes=False, ci=None)
-    if key == 'bs_power':
-        plt.xlabel(f'{key}/W')
-    plt.ylabel(f'Average {aim}(bps/Hz)')
-
-
-def displot(data, key, aim):
-    sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
-                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                height=5, aspect=2, facet_kws=dict(legend_out=False))
-
-
-def boxplot(data, key, aim):
-    dft_config = get_default_config()
-    from functools import reduce
-    from operator import and_
-    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-    ) if k in valid_keys and k != key))
-    plt.xticks(sorted(list(set(data[key]))))
-    sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
-                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                palette="Set3", showfliers=False)
-    if key == 'bs_power':
-        plt.xlabel(f'{key}/W')
-    plt.ylabel(f'Average {aim}(bps/Hz)')
 
 
 @register
