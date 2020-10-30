@@ -60,46 +60,48 @@ def get_default_config():
 dft_config = get_default_config()
 
 
-def lineplot(data, key, aim):
+def lineplot(data, key, aim, **kwargs):
     fig = plt.figure(figsize=(15, 10))
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
     sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
                  hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                 style="algorithm", markers=True, dashes=False, ci=None)
+                 style="algorithm", markers=True, dashes=False, ci=None,
+                 **kwargs)
     if key == 'bs_power':
         plt.xlabel(f'{key}/W')
     plt.ylabel(f'Average {aim}(bps/Hz)')
     return fig
 
 
-def displot(data, aim, key=''):
+def displot(data, key, aim, **kwargs):
     fig = plt.figure(figsize=(15, 10))
     sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                height=5, aspect=2, facet_kws=dict(legend_out=False))
+                height=5, aspect=2, facet_kws=dict(legend_out=False),
+                **kwargs)
     return fig
 
 
-def boxplot(data, key, aim):
+def boxplot(data, key, aim, **kwargs):
     fig = plt.figure(figsize=(15, 10))
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
     sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                palette="Set3", showfliers=False)
+                showfliers=False, **kwargs)
     if key == 'bs_power':
         plt.xlabel(f'{key}/W')
     plt.ylabel(f'Average {aim}(bps/Hz)')
     return fig
 
 
-def check_and_savefig(path: Path()):
+def check_and_savefig(path: Path(), *args, **kwargs):
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
-    plt.savefig(path)
+    plt.savefig(path, *args, **kwargs)
 
 
 def get_datas(directory: Path()):
@@ -275,7 +277,8 @@ def plot_icc(all_data):
     for mission in tqdm(missions, desc="Ploting ICC"):
         key, func = mission
         fig = func(data=all_data, key=key, aim=aim)
-        check_and_savefig(figs / f'icc/{aim}-{key}.png')
+        check_and_savefig(figs / f'icc/{aim}-{key}.png',
+                          dpi=200 if func == displot else 'figure')
         plt.close(fig)
 
 
