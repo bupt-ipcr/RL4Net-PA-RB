@@ -12,7 +12,7 @@ env:
     m_usrs:
                 4
     bs_power:
-                10  # dBm
+                10  # W
     R_bs:
             1   # adjust to match n_t_devices
     R_dev:
