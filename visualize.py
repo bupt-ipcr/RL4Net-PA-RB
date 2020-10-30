@@ -256,6 +256,60 @@ def plot_env(*args):
     plt.close(fig)
 
 
+def lineplot(data, key, aim):
+    dft_config = get_default_config()
+    from functools import reduce
+    from operator import and_
+    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+    ) if k in valid_keys and k != key))
+    plt.xticks(sorted(list(set(data[key]))))
+    sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
+                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                 style="algorithm", markers=True, dashes=False, ci=None)
+    if key == 'bs_power':
+        plt.xlabel(f'{key}/W')
+    plt.ylabel(f'Average {aim}(bps/Hz)')
+
+
+def displot(data, key, aim):
+    sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
+                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                height=5, aspect=2, facet_kws=dict(legend_out=False))
+
+
+def boxplot(data, key, aim):
+    dft_config = get_default_config()
+    from functools import reduce
+    from operator import and_
+    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
+    ) if k in valid_keys and k != key))
+    plt.xticks(sorted(list(set(data[key]))))
+    sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
+                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                palette="Set3", showfliers=False)
+    if key == 'bs_power':
+        plt.xlabel(f'{key}/W')
+    plt.ylabel(f'Average {aim}(bps/Hz)')
+
+
+@register
+def plot_icc(all_data):
+    from functools import reduce
+    from operator import and_
+    aim = "sum_rate"
+    # missions
+    missions = [('cdf', displot), ('bs_power', lineplot),
+                ('m_usrs', lineplot), ('m_r_devices', boxplot),
+                ('n_t_devices', boxplot)]
+    dft_config = get_default_config()
+    for mission in tqdm(missions, desc="Ploting ICC"):
+        key, func = mission
+        fig = plt.figure(figsize=(15, 10))
+        func(data=all_data, key=key, aim=aim)
+        check_and_savefig(figs / f'icc/{aim}-{key}.png')
+        plt.close(fig)
+
+
 @register
 def plot_all(all_data):
     for name, func in plot_funcs.items():
