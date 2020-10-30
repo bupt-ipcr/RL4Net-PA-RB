@@ -1,3 +1,5 @@
+from operator import and_
+from functools import reduce
 from inspect import isfunction
 import json
 import re
@@ -55,10 +57,11 @@ def get_default_config():
     return config
 
 
+dft_config = get_default_config()
+
+
 def lineplot(data, key, aim):
-    dft_config = get_default_config()
-    from functools import reduce
-    from operator import and_
+
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
@@ -77,9 +80,6 @@ def displot(data, key, aim):
 
 
 def boxplot(data, key, aim):
-    dft_config = get_default_config()
-    from functools import reduce
-    from operator import and_
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
@@ -168,8 +168,6 @@ def get_all_data(args):
 
 @register
 def plot_box(all_data):
-    from functools import reduce
-    from operator import and_
     dft_config = get_default_config()
     for key in tqdm(valid_keys, desc="Ploting Box"):
         for aim in ['rate', 'sum_rate']:
@@ -187,8 +185,6 @@ def plot_box(all_data):
 
 @register
 def plot_cdf(all_data):
-    from functools import reduce
-    from operator import and_
     dft_config = get_default_config()
     for aim in tqdm(['rate', 'sum_rate'], desc="Ploting CDF"):
         fig = plt.figure(figsize=(15, 10))
@@ -203,8 +199,6 @@ def plot_cdf(all_data):
 
 @ register
 def plot_avg(all_data):
-    from functools import reduce
-    from operator import and_
     dft_config = get_default_config()
     for key in tqdm(valid_keys, desc="Ploting AVG"):
         for aim in ['rate', 'sum_rate']:
@@ -294,8 +288,6 @@ def plot_env(*args):
 
 @register
 def plot_icc(all_data):
-    from functools import reduce
-    from operator import and_
     aim = "sum_rate"
     # missions
     missions = [('cdf', displot), ('bs_power', lineplot),
