@@ -27,6 +27,8 @@ env:
             - power
             - rate
             - fading
+    m_state:
+            16
 agent:
     gamma:
             0.0 # discount rate
