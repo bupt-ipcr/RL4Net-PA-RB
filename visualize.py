@@ -77,7 +77,7 @@ def get_datas(directory: Path()):
                             'dqn': 'DRPA',
                             'fp': 'FP',
                             'wmmse': 'WMMSE',
-                            'random': 'random', 
+                            'random': 'random',
                             'maximum': 'maximum'
                         }
                         sub_datas.append({
@@ -155,16 +155,17 @@ def plot_cdf(all_data):
     from operator import and_
     dft_config = get_default_config()
     for aim in tqdm(['rate', 'sum_rate'], desc="Ploting CDF"):
-        fig = plt.figure(figsize=(15, 20))
+        fig = plt.figure(figsize=(15, 10))
         cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
         ) if k in valid_keys and k != 'batch_size'))
         sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm",
-                    hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],)
+                    hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                    height=5, aspect=2, facet_kws=dict(legend_out=False))
         check_and_savefig(figs / f'cdf/{aim}.png')
         plt.close(fig)
 
 
-@register
+@ register
 def plot_avg(all_data):
     from functools import reduce
     from operator import and_
@@ -175,7 +176,8 @@ def plot_avg(all_data):
             cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
             ) if k in valid_keys and k != key))
             ax = sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
-                              hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                              hue_order=['DRPA', 'FP',
+                                         'WMMSE', 'maximum', 'random'],
                               style="algorithm", markers=True, dashes=False, ci=None)
             plt.xticks(sorted(list(set(all_data[cur_index][key]))))
             if key == 'bs_power':
@@ -185,7 +187,7 @@ def plot_avg(all_data):
             plt.close(fig)
 
 
-@register
+@ register
 def plot_sbp(all_data):
     """Plot sum bs power"""
     from functools import reduce
