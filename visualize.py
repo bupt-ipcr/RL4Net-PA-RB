@@ -17,8 +17,13 @@ import pickle
 
 here = Path()
 figs = here / 'figs'
-valid_keys = ['m_r_devices', 'n_t_devices', 'm_usrs', 'bs_power', 'batch_size']
-
+valid_keys = ['Number of DRs in each cluster', 'Number of DTs',
+              'Number of CUE', 'BS Power (W)', 'Batch Size']
+alias = {
+    'bs_power': 'BS Power (W)', 'm_usrs': 'Number of CUE',
+    'n_t_devices': 'Number of DTs', 'batch_size': 'Batch Size',
+    'm_r_devices': 'Number of DRs in each cluster'
+}
 plot_funcs = {}
 
 
@@ -42,7 +47,7 @@ def get_args():
     return args
 
 
-def get_default_config():
+def get_default_config(rename=False):
     dft_config = utils.get_config('default_config.yaml')
     config = dft_config['env']
     agent_config = dft_config['agent']
@@ -54,48 +59,62 @@ def get_default_config():
             config[k] = int(v)
         except:
             pass
+    # add
+    if rename:
+        for k, v in alias.items():
+            config[v] = config[k]
     return config
 
 
-dft_config = get_default_config()
+dft_config = get_default_config(rename=True)
 
 
 def lineplot(data, key, aim, **kwargs):
-    fig = plt.figure(figsize=(15, 10))
+    sns.set_style('whitegrid')
+    # fig = plt.figure(figsize=(10, 7.5))
+    fig = plt.figure()
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
-    sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
-                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                 style="algorithm", markers=True, dashes=False, ci=None,
-                 **kwargs)
-    if key == 'bs_power':
-        plt.xlabel(f'{key}/W')
-    plt.ylabel(f'Average {aim}(bps/Hz)')
-    return fig
+    ax = sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
+                      hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                      style="algorithm", markers=True, dashes=False, ci=None,
+                      markersize=8, **kwargs)
+    ax.legend().set_title('')
+    plt.ylabel(f'Average {aim} (bps/Hz)')
+    return fig, ax
 
 
 def displot(data, key, aim, **kwargs):
-    fig = plt.figure(figsize=(15, 10))
-    sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
-                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                height=5, aspect=2, facet_kws=dict(legend_out=False),
-                **kwargs)
-    return fig
+    sns.set_style('white')
+    # fig = plt.figure(figsize=(10, 7.5))
+    fig = plt.figure()
+    ax = sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
+                     hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                    #  height=5, aspect=2, facet_kws=dict(legend_out=False),
+                    aspect=2, facet_kws=dict(legend_out=False),
+                     **kwargs)
+    ax.legend.set_title('')
+    ax.legend._loc=7
+    plt.xlabel(f'Average {aim} (bps/Hz)')
+    plt.grid(axis="y")
+    return fig, ax
 
 
 def boxplot(data, key, aim, **kwargs):
-    fig = plt.figure(figsize=(15, 10))
+    sns.set_style('white')
+    # fig = plt.figure(figsize=(10, 7.5))
+    fig = plt.figure()
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
-    sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
-                hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                showfliers=False, **kwargs)
-    if key == 'bs_power':
-        plt.xlabel(f'{key}/W')
-    plt.ylabel(f'Average {aim}(bps/Hz)')
-    return fig
+    ax = sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
+                     hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
+                     showfliers=False, **kwargs)
+    ax.legend().set_title('')
+    plt.ylabel(f'Average {aim} (bps/Hz)')
+    ax.grid(axis="y")
+    return fig, ax
 
 
 def check_and_savefig(path: Path(), *args, **kwargs):
@@ -125,7 +144,7 @@ def get_datas(directory: Path()):
                         }
                         sub_datas.append({
                             'algorithm': algorithm_mapping[algorithm],
-                            'rate': rate
+                            'Rate': rate
                         })
         else:
             sub_datas = []
@@ -163,12 +182,15 @@ def get_all_data(args):
         datas = get_datas(logdir)
         for data in datas:
             data.update(conf)
-            data['sum_rate'] = data['rate'] * n_recvs
+            data['sum-rate'] = data['Rate'] * n_recvs
         if not 2 < conf['bs_power'] < 40:
             continue
         all_data.extend(datas)
     # save
     all_data = pd.DataFrame(all_data)
+    # replace column names
+    all_data.rename(columns=alias,
+                    inplace=True)
     all_data.to_pickle(str(save_file))
     return all_data
 
@@ -176,7 +198,7 @@ def get_all_data(args):
 @ register
 def plot_avg(all_data):
     for key in tqdm(valid_keys, desc="Ploting AVG"):
-        for aim in ['rate', 'sum_rate']:
+        for aim in ['Rate', 'sum-rate']:
             fig = lineplot(data=all_data, key=key, aim=aim)
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
             plt.close(fig)
@@ -185,7 +207,7 @@ def plot_avg(all_data):
 @register
 def plot_box(all_data):
     for key in tqdm(valid_keys, desc="Ploting Box"):
-        for aim in ['rate', 'sum_rate']:
+        for aim in ['Rate', 'sum-rate']:
             fig = boxplot(data=all_data, key=key, aim=aim)
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
             plt.close(fig)
@@ -195,7 +217,7 @@ def plot_box(all_data):
 
 @register
 def plot_cdf(all_data):
-    for aim in tqdm(['rate', 'sum_rate'], desc="Ploting CDF"):
+    for aim in tqdm(['Rate', 'sum-rate'], desc="Ploting CDF"):
         fig = displot(data=all_data, key='', aim=aim)
         check_and_savefig(figs / f'cdf/{aim}.png')
         plt.close(fig)
@@ -204,14 +226,14 @@ def plot_cdf(all_data):
 @ register
 def plot_sbp(all_data):
     """Plot sum bs power"""
-    all_data['sum_bs_power'] = all_data['bs_power'] * all_data['m_usrs']
+    all_data['Sum BS Power'] = all_data['BS Power'] * all_data['m_usrs']
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-    ) if k in valid_keys and k not in {'m_usrs', 'bs_power', 'total_bs_power'}))
-    key = 'sum_bs_power'
-    for aim in tqdm(['rate', 'sum_rate'], desc='Ploting SBP'):
+    ) if k in valid_keys and k not in {'Number of CUE', 'BS Power', 'Sum BS Power'}))
+    key = 'Sum BS Power'
+    for aim in tqdm(['Rate', 'sum-rate'], desc='Ploting SBP'):
         fig = plt.figure(figsize=(15, 10))
         sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                    data=all_data[cur_index], palette="Set3", showfliers=False)
+                    data=all_data[cur_index], palette="Set1", showfliers=False)
         check_and_savefig(figs / f'box/{aim}-{key}.png')
         plt.close(fig)
 
@@ -269,16 +291,20 @@ def plot_env(*args):
 
 @register
 def plot_icc(all_data):
-    aim = "sum_rate"
+    aim, palette = "sum-rate", 'Set1'
     # missions
-    missions = [('cdf', displot), ('bs_power', lineplot),
-                ('m_usrs', lineplot), ('m_r_devices', boxplot),
-                ('n_t_devices', boxplot)]
+    missions = [('CDF', displot), ('BS Power (W)', lineplot),
+                ('Number of CUE', lineplot), ('Number of DRs in each cluster', boxplot),
+                ('Number of DTs', boxplot)]
     for mission in tqdm(missions, desc="Ploting ICC"):
         key, func = mission
-        fig = func(data=all_data, key=key, aim=aim)
-        check_and_savefig(figs / f'icc/{aim}-{key}.png',
-                          dpi=200 if func == displot else 'figure')
+
+        fig, ax = func(data=all_data, key=key, aim=aim,
+                       palette=sns.color_palette(palette, 5))
+        if func == lineplot:
+            ax.set_ylim((20, 80))
+        check_and_savefig(figs / f'icc/{aim}-{key}-{palette}.png',
+                          dpi=300)
         plt.close(fig)
 
 
