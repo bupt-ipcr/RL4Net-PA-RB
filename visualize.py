@@ -73,8 +73,15 @@ def get_datas(directory: Path()):
                     if re.match(r'^[a-z]+: [\d.]+$', line):
                         algorithm, rate = line.split(': ')
                         rate = float(rate)
+                        algorithm_mapping = {
+                            'dqn': 'DRPA',
+                            'fp': 'FP',
+                            'wmmse': 'WMMSE',
+                            'random': 'random', 
+                            'maximum': 'maximum'
+                        }
                         sub_datas.append({
-                            'algorithm': algorithm,
+                            'algorithm': algorithm_mapping[algorithm],
                             'rate': rate
                         })
         else:
@@ -104,9 +111,12 @@ def get_all_data(args):
                 key, value = change.split('=')
                 if key != 'card_no':
                     try:
-                        conf[key] = float(value)
+                        conf[key] = int(value)
                     except:
-                        conf[key] = value
+                        try:
+                            conf[key] = float(value)
+                        except:
+                            conf[key] = value
         datas = get_datas(logdir)
         for data in datas:
             data.update(conf)
@@ -130,7 +140,7 @@ def plot_box(all_data):
             fig = plt.figure(figsize=(15, 10))
             cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
             ) if k in valid_keys and k != key))
-            sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
+            sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
                         data=all_data[cur_index], palette="Set3", showfliers=False)
             if key == 'bs_power':
                 plt.xlabel(f'{key}/W')
@@ -145,11 +155,11 @@ def plot_cdf(all_data):
     from operator import and_
     dft_config = get_default_config()
     for aim in tqdm(['rate', 'sum_rate'], desc="Ploting CDF"):
-        fig = plt.figure(figsize=(15, 10))
+        fig = plt.figure(figsize=(15, 20))
         cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
         ) if k in valid_keys and k != 'batch_size'))
-        sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm", hue_order=[
-                    'dqn', 'fp', 'wmmse', 'maximum', 'random'])
+        sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm",
+                    hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],)
         check_and_savefig(figs / f'cdf/{aim}.png')
         plt.close(fig)
 
@@ -165,8 +175,7 @@ def plot_avg(all_data):
             cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
             ) if k in valid_keys and k != key))
             ax = sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
-                              hue_order=['dqn', 'fp', 'wmmse',
-                                         'maximum', 'random'],
+                              hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
                               style="algorithm", markers=True, dashes=False, ci=None)
             plt.xticks(sorted(list(set(all_data[cur_index][key]))))
             if key == 'bs_power':
@@ -188,15 +197,14 @@ def plot_sbp(all_data):
     key = 'sum_bs_power'
     for aim in tqdm(['rate', 'sum_rate'], desc='Ploting SBP'):
         fig = plt.figure(figsize=(15, 10))
-        sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['dqn', 'fp', 'wmmse', 'maximum', 'random'],
+        sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
                     data=all_data[cur_index], palette="Set3", showfliers=False)
         check_and_savefig(figs / f'box/{aim}-{key}.png')
         plt.close(fig)
 
         fig = plt.figure(figsize=(15, 10))
         sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
-                     hue_order=['dqn', 'fp', 'wmmse',
-                                'maximum', 'random'],
+                     hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
                      style="algorithm", markers=True, dashes=False, ci=None)
         plt.xticks(sorted(list(set(all_data[cur_index][key]))))
         check_and_savefig(figs / f'avg/{aim}-{key}.png')
