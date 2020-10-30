@@ -12,7 +12,7 @@ keywords = [
     'seed', 'n_levels',
     'n_t_devices', 'm_r_devices', 'm_usrs', 'bs_power',
     'R_bs', 'R_dev', 'r_bs', 'r_dev',
-    'sorter', 'metrics',
+    'sorter', 'metrics', 'm_state',
     'gamma', 'learning_rate', 'init_epsilon', 'min_epsilon',
     'batch_size', 'card_no'
 ]
@@ -55,7 +55,8 @@ def get_args():
     for change in args.default_changes:
         key, value = change.split('=')
         if key not in keywords:
-            raise ValueError(f'Default change key should in {keywords}, but {key}')
+            raise ValueError(
+                f'Default change key should in {keywords}, but {key}')
         try:
             value = int(value)
         except:
@@ -103,6 +104,7 @@ def get_instance(diffs):
     logdir = utils.get_logdir(conf, default_conf)
     return env, agent, logdir
 
+
 def check_exist(env, agent, logdir):
     # check if logdir has result.log
     parent = logdir.parent
@@ -121,7 +123,7 @@ def check_exist(env, agent, logdir):
                 print(f'{train_dir}.rmdir() failed')
             print(f'{train_dir}.rmdir()')
     return False
-        
+
 
 if __name__ == '__main__':
     args = get_args()
