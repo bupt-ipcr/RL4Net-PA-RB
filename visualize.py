@@ -61,7 +61,7 @@ dft_config = get_default_config()
 
 
 def lineplot(data, key, aim):
-
+    fig = plt.figure(figsize=(15, 10))
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
@@ -71,15 +71,19 @@ def lineplot(data, key, aim):
     if key == 'bs_power':
         plt.xlabel(f'{key}/W')
     plt.ylabel(f'Average {aim}(bps/Hz)')
+    return fig
 
 
-def displot(data, key, aim):
+def displot(data, aim, key=''):
+    fig = plt.figure(figsize=(15, 10))
     sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
                 hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
                 height=5, aspect=2, facet_kws=dict(legend_out=False))
+    return fig
 
 
 def boxplot(data, key, aim):
+    fig = plt.figure(figsize=(15, 10))
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k != key))
     plt.xticks(sorted(list(set(data[key]))))
@@ -89,6 +93,7 @@ def boxplot(data, key, aim):
     if key == 'bs_power':
         plt.xlabel(f'{key}/W')
     plt.ylabel(f'Average {aim}(bps/Hz)')
+    return fig
 
 
 def check_and_savefig(path: Path()):
@@ -166,64 +171,38 @@ def get_all_data(args):
     return all_data
 
 
+@ register
+def plot_avg(all_data):
+    for key in tqdm(valid_keys, desc="Ploting AVG"):
+        for aim in ['rate', 'sum_rate']:
+            fig = lineplot(data=all_data, key=key, aim=aim)
+            check_and_savefig(figs / f'avg/{aim}-{key}.png')
+            plt.close(fig)
+
+
 @register
 def plot_box(all_data):
-    dft_config = get_default_config()
     for key in tqdm(valid_keys, desc="Ploting Box"):
         for aim in ['rate', 'sum_rate']:
-            fig = plt.figure(figsize=(15, 10))
-            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-            ) if k in valid_keys and k != key))
-            sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                        data=all_data[cur_index], palette="Set3", showfliers=False)
-            if key == 'bs_power':
-                plt.xlabel(f'{key}/W')
-            plt.ylabel(f'Average {aim}(bps/Hz)')
+            fig = boxplot(data=all_data, key=key, aim=aim)
+            check_and_savefig(figs / f'avg/{aim}-{key}.png')
+            plt.close(fig)
             check_and_savefig(figs / f'box/{aim}-{key}.png')
             plt.close(fig)
 
 
 @register
 def plot_cdf(all_data):
-    dft_config = get_default_config()
     for aim in tqdm(['rate', 'sum_rate'], desc="Ploting CDF"):
-        fig = plt.figure(figsize=(15, 10))
-        cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-        ) if k in valid_keys and k != 'batch_size'))
-        sns.displot(data=all_data[cur_index], x=aim, kind="ecdf", hue="algorithm",
-                    hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                    height=5, aspect=2, facet_kws=dict(legend_out=False))
+        fig = displot(data=all_data, key='', aim=aim)
         check_and_savefig(figs / f'cdf/{aim}.png')
         plt.close(fig)
 
 
 @ register
-def plot_avg(all_data):
-    dft_config = get_default_config()
-    for key in tqdm(valid_keys, desc="Ploting AVG"):
-        for aim in ['rate', 'sum_rate']:
-            fig = plt.figure(figsize=(15, 10))
-            cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-            ) if k in valid_keys and k != key))
-            ax = sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
-                              hue_order=['DRPA', 'FP',
-                                         'WMMSE', 'maximum', 'random'],
-                              style="algorithm", markers=True, dashes=False, ci=None)
-            plt.xticks(sorted(list(set(all_data[cur_index][key]))))
-            if key == 'bs_power':
-                plt.xlabel(f'{key}/W')
-            plt.ylabel(f'Average {aim}(bps/Hz)')
-            check_and_savefig(figs / f'avg/{aim}-{key}.png')
-            plt.close(fig)
-
-
-@ register
 def plot_sbp(all_data):
     """Plot sum bs power"""
-    from functools import reduce
-    from operator import and_
     all_data['sum_bs_power'] = all_data['bs_power'] * all_data['m_usrs']
-    dft_config = get_default_config()
     cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
     ) if k in valid_keys and k not in {'m_usrs', 'bs_power', 'total_bs_power'}))
     key = 'sum_bs_power'
@@ -293,11 +272,9 @@ def plot_icc(all_data):
     missions = [('cdf', displot), ('bs_power', lineplot),
                 ('m_usrs', lineplot), ('m_r_devices', boxplot),
                 ('n_t_devices', boxplot)]
-    dft_config = get_default_config()
     for mission in tqdm(missions, desc="Ploting ICC"):
         key, func = mission
-        fig = plt.figure(figsize=(15, 10))
-        func(data=all_data, key=key, aim=aim)
+        fig = func(data=all_data, key=key, aim=aim)
         check_and_savefig(figs / f'icc/{aim}-{key}.png')
         plt.close(fig)
 
