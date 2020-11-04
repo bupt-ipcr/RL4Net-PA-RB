@@ -91,8 +91,8 @@ def displot(data, key, aim, **kwargs):
     fig = plt.figure()
     ax = sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
                      hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                    #  height=5, aspect=2, facet_kws=dict(legend_out=False),
-                    aspect=2, facet_kws=dict(legend_out=False),
+                     height=3, aspect=1.5, facet_kws=dict(legend_out=False),
+                    # aspect=1.5, facet_kws=dict(legend_out=False),
                      **kwargs)
     ax.legend.set_title('')
     ax.legend._loc=7
