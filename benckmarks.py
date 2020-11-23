@@ -12,11 +12,11 @@ def get_args():
 
 def mock_FP_algorithm(env):
     P = np.random.rand(env.n_recvs)
-    loss = env.loss
-    g_ii = loss.diagonal()
+    fading = env.fading
+    g_ii = fading.diagonal()
     for _ in range(100):
         P_last = P
-        recv_power = P * loss
+        recv_power = P * fading
         signal_power = recv_power.diagonal()
         total_power = recv_power.sum(axis=1)
         inter_noise = total_power - signal_power + \
@@ -26,7 +26,7 @@ def mock_FP_algorithm(env):
         y = np.sqrt((1.+gamma) * signal_power) / inter_noise
         y_j = np.tile(np.expand_dims(y, axis=1), [1, env.n_recvs])
         P = np.minimum(env.power_levels[-1], np.square(y) *
-                       (1.+gamma) * g_ii / np.sum(np.square(y_j)*loss, axis=1))
+                       (1.+gamma) * g_ii / np.sum(np.square(y_j)*fading, axis=1))
         if np.linalg.norm(P_last - P) < 1e-3:
             break
     return P
@@ -34,8 +34,8 @@ def mock_FP_algorithm(env):
 
 def mock_WMMSE_algorithm(env):
     v = np.random.rand(env.n_recvs)  # max_power*np.ones((N))
-    loss = env.loss
-    recv_power = np.square(v) * loss
+    fading = env.fading
+    recv_power = np.square(v) * fading
     signal_power = recv_power.diagonal()
     total_power = recv_power.sum(axis=1)
     inter_noise = total_power - signal_power + \
@@ -48,12 +48,12 @@ def mock_WMMSE_algorithm(env):
         C_last = C
         W = w * np.ones([env.n_recvs, env.n_recvs])
         U = u * np.ones([env.n_recvs, env.n_recvs])
-        v_ = W*U**2*loss
-        v = w*u*np.sqrt(loss.diagonal()) / np.sum(v_, axis=1)
+        v_ = W*U**2*fading
+        v = w*u*np.sqrt(fading.diagonal()) / np.sum(v_, axis=1)
         v = np.minimum(
             np.sqrt(env.power_levels[-1]), np.maximum(1e-10*np.random.rand(env.n_recvs), v))
 
-        recv_power = np.square(v) * loss
+        recv_power = np.square(v) * fading
         signal_power = recv_power.diagonal()
         total_power = recv_power.sum(axis=1)
         inter_noise = total_power - signal_power + \
@@ -80,14 +80,14 @@ def maximum_algorithm(env):
 
 def cal_benchmark(algorithm, env):
     env.reset()
-    cum_r = 0
+    cum_r = []
     while True:
         p = algorithm.func(env)
         raw = algorithm.type == 'power'
         s_, r, d, i = env.step(p, raw=raw)
-        cum_r += r/env.n_recvs
+        cum_r.append(r)
         if d:
-            return algorithm.name, cum_r/env.n_recvs
+            return algorithm.name, np.mean(cum_r)
 
 
 def cal_benchmarks(env):
