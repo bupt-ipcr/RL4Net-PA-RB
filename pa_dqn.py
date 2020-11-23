@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 # coding=utf-8
 """
-@author: ,: Jiawei Wu
+@author: Jiawei Wu
 @create time: 2019-12-07 20:17
-@edit time: ,: 2020-10-20 19:05
-@FilePath: ,: /PA/pa_dqn.py
+@edit time: 2020-11-23 11:29
+@FilePath: /PA/pa_dqn.py
 """
 from functools import reduce
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
-from vvlab.agents import DQNBase
+from vvlab.agents.DQN_base import DQNBase
 
 
 CUDA = torch.cuda.is_available()

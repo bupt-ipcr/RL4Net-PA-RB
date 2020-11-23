@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import yaml
-from vvlab.envs.power_allocation import PAEnv
+from vvlab.envs.power_allocation.pa_env import PAEnv
 
 config_path = 'config.yaml'
 default_config_path = 'default_config.yaml'
@@ -28,6 +28,7 @@ def get_config(path):
 
 
 def get_env(**kwargs):
+    """默认使用config.yaml，但是kwargs优先级更高"""
     config = get_config(config_path)
     env_config = config['env']
     env_config.update(kwargs)
