@@ -85,7 +85,7 @@ def cal_benchmark(algorithm, env):
         p = algorithm.func(env)
         raw = algorithm.type == 'power'
         s_, r, d, i = env.step(p, raw=raw)
-        cum_r.append(r)
+        cum_r.append(r/env.n_recvs)
         if d:
             return algorithm.name, np.mean(cum_r)
 
