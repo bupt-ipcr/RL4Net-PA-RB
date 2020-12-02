@@ -3,8 +3,8 @@
 """
 @author: Jiawei Wu
 @create time: 2020-09-25 11:20
-@edit time: 2020-11-24 15:02
-@FilePath: /PA/root/anaconda3/envs/PA/lib/python3.7/site-packages/vvlab/envs/power_allocation/pa_env.py
+@edit time: 2020-12-02 09:35
+@FilePath: /PA/pa_rb_env.py
 @desc: An enviornment for power allocation in d2d and BS het-nets.
 
 Path_loss is 114.8 + 36.7*np.log10(d), follow 3GPP TR 36.873, d is
@@ -360,6 +360,60 @@ class PAEnv:
         state = np.hstack([metric_param[metric] for metric in self.metrics])
 
         return state[:self.n_t * self.m_r]
+
+    def decode_action(self, action, db=False):
+        action = action.squeeze()
+        # check action count
+        if len(action) == self.n_t:
+            pass 
+        elif len(action) == self.n_channels:
+            # if action includes authorized users, abandon
+            action = action[self.n_t]
+        else:
+            msg = f"length of action should be n_recvs({self.n_recvs})" \
+                f" or n_t({self.n_t}), but is {len(action)}"
+            raise ValueError(msg)
+
+        # convert actions
+        def calc_power(level):
+            if db:
+                db_level = (self.min_db-self.max_db) / self.n_level * level
+                return 1e-3 * np.power(10, db_level / 10) if level > 0 else 0
+            else:
+                return (self.min_power-self.max_power) / self.n_level * level
+        d2d_alloc = {}
+        for i_dt, a in enumerate(action):
+            # calc alloc
+            if len(a) == self.m_rb:
+                # Continuous action, direct to power
+                alloc = {rb: power for rb, power in enumerate(a) if power>0}
+            elif len(a) == self.m_rb * self.n_levels:
+                # Discrete action, need convert
+                index = np.argmax(a)
+                rb, level = index // self.n_level, index % self.n_level
+                alloc = {rb: calc_power(level)}
+            else:
+                msg = f"Action shape {len(action)} is not supported."
+                raise ValueError(msg)
+            
+            d2d_alloc[i_dt] = alloc
+
+        # add allocation of bs and CUE
+        bs_alloc, cue_alloc = {}, {}
+        for cue in range(self.m_cue):
+            # channel of bs->cue use the uplink RB serial corresponding to cue
+            bs_alloc[cue] = {cue: self.bs_power}
+            # cue->bs channel use downlink RB serial corresponding to cue
+            # serial number in [m_cue, 2*m_cue) means downlink
+            cue_alloc[cue] = {cue+self.m_cue: self.cue_power}
+
+
+        self.allocations = {
+            'bs': bs_alloc,
+            'cue': cue_alloc,
+            'd2d': d2d_alloc
+        }
+
 
     def step(self, action, raw=False):
         h_set = self.H_set[:, :, self.cur_step]
