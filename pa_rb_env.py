@@ -3,7 +3,7 @@
 """
 @author: Jiawei Wu
 @create time: 2020-09-25 11:20
-@edit time: 2020-12-02 09:35
+@edit time: 2020-12-02 09:41
 @FilePath: /PA/pa_rb_env.py
 @desc: An enviornment for power allocation in d2d and BS het-nets.
 
@@ -62,15 +62,6 @@ class PAEnv:
 
         # set to instance attr
         self.sorter, self.metrics = sorter, metrics
-
-    def init_power_levels(self):
-        min_power, max_power = self.min_power, self.max_power
-        zero_power = 0
-        def cal_p(p_dbm): return 1e-3 * np.power(10, p_dbm / 10)
-        dbm_powers = np.linspace(min_power, max_power, num=self.n_levels-1)
-        powers = [cal_p(p_dbm) for p_dbm in dbm_powers]
-        powers = [zero_power] + powers
-        self.power_levels = np.array(powers)
 
     def init_pos(self):
         """ Initialize position of devices(DT, DR, BS and CUE).
@@ -408,33 +399,23 @@ class PAEnv:
             cue_alloc[cue] = {cue+self.m_cue: self.cue_power}
 
 
-        self.allocations = {
+        allocations = {
             'bs': bs_alloc,
             'cue': cue_alloc,
             'd2d': d2d_alloc
         }
 
+        return allocations
 
-    def step(self, action, raw=False):
+
+    def step(self, action, db=False):
         h_set = self.H_set[:, :, self.cur_step]
         self.fading = np.square(h_set) * self.path_loss
-        if raw:
-            power = action
-        else:
-            power = self.power_levels[action]
+        self.allocations = self.decode_action(action, db=db)
 
-        # append power of BS(constant)
-        if len(power) == self.n_t * self.m_r:
-            power = np.concatenate((power, np.full(self.m_usr, self.bs_power)))
-        elif len(power) == self.n_recvs:
-            power[self.n_t * self.m_r:] = np.full(self.m_usr, self.bs_power)
-        else:
-            msg = f"length of power should be n_recvs({self.n_recvs})" \
-                f" or n_t*m_r({self.n_t*self.m_r}), but is {len(power)}"
-            raise ValueError(msg)
-        rate = self.cal_rate(power, self.fading)
+        rate = self.cal_rate(self.allocations, self.fading)
 
-        state = self.get_state(power, rate, self.fading)
+        state = self.get_state(self.allocations, rate, self.fading)
         reward = np.sum(rate)
         done = self.cur_step == self.Ns - 1
         info = self.cur_step
