@@ -3,7 +3,7 @@
 """
 @author: Jiawei Wu
 @create time: 2020-09-25 11:20
-@edit time: 2020-12-02 09:41
+@edit time: 2020-12-04 11:06
 @FilePath: /PA/pa_rb_env.py
 @desc: An enviornment for power allocation in d2d and BS het-nets.
 
@@ -18,13 +18,15 @@ downlink
 """
 from collections import namedtuple
 from pathlib import Path
-
+import itertools
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import scipy.io
 import scipy.special
+
+import pa_rb_utils as utils
 
 Node = namedtuple('Node', 'x y type')
 
@@ -82,22 +84,16 @@ class PAEnv:
         device in attributes of the environment instance, self.users and
         self.devices.
         """
-        r_bs, R_bs, r_dev, R_dev = self.r_bs, self.R_bs, self.r_dev, self.R_dev
+        random_point = utils.random_point_in_circle
 
-        def random_point(min_r, radius, ox=0, oy=0):
-            # https://www.cnblogs.com/yunlambert/p/10161339.html
-            # renference the formulaic deduction, his code has bug at uniform
-            theta = np.random.random() * 2 * np.pi
-            r = np.random.uniform(min_r, radius**2)
-            x, y = np.cos(theta) * np.sqrt(r), np.sin(theta) * np.sqrt(r)
-            return ox + x, oy + y
+        r_bs, R_bs, r_dev, R_dev = self.r_bs, self.R_bs, self.r_dev, self.R_dev
         # init CUE positions
         self.station = Node(0, 0, 'station')
-        self.users = {}
-        for i in range(self.m_usr):
+        self.cues = {}
+        for i in range(self.m_cue):
             x, y = random_point(r_bs, R_bs)
-            user = Node(x, y, 'user')
-            self.users[i] = user
+            cue = Node(x, y, 'cue')
+            self.cues[i] = cue
 
         # init D2D positions
         self.devices = {}
@@ -105,7 +101,7 @@ class PAEnv:
             tx, ty = random_point(r_bs, R_bs - R_dev)
             t_device = Node(tx, ty, 't_device')
             r_devices = {
-                r: Node(*random_point(r_dev, R_dev, tx, ty), 'r_device')
+                r: Node(*random_point(r_dev, R_dev, tx, ty), 'r_devices')
                 for r in range(self.m_r)
             }
             self.devices[t] = {'t_device': t_device, 'r_devices': r_devices}
@@ -128,23 +124,27 @@ class PAEnv:
             Ts: sampling period, default 20 * 1e-3(s)
             Ns: number of samples, default 50
         """
-        n_t, m_r, n_bs, m_usr = self.n_t, self.m_r, 1, self.m_usr
-        n_recvs = n_t * m_r + n_bs * m_usr
         randn = np.random.randn
+
+        n_t, m_r, n_bs, m_cue = self.n_t, self.m_r, 1, self.m_cue
+        n_channel = self.n_channel
+
+        def foo(pho, n, m):
+            # each channel have n_channel h to other channels(include self)
+            # each Tx send m signal, the number of this kind of Tx is n
+            _h = np.sqrt((1.-pho**2)*0.5*(randn(n_channel, n)**2
+                                          + randn(n_channel, n)**2))
+            return np.kron(_h, np.ones((1, m), dtype=np.int32))
 
         def calc_h_set(pho):
             # calculate next sample of Jakes model.
-            h_d2d = np.kron(np.sqrt((1.-pho**2)*0.5*(
-                randn(n_recvs, n_t)**2 + randn(n_recvs, n_t)**2)),
-                np.ones((1, m_r), dtype=np.int32))
-            h_bs = np.kron(np.sqrt((1.-pho**2)*0.5*(
-                randn(n_recvs, n_bs)**2 + randn(n_recvs, n_bs)**2)),
-                np.ones((1, m_usr), dtype=np.int32))
-            h_set = np.concatenate((h_d2d, h_bs), axis=1)
-            return h_set
+            return np.concatenate((foo(pho, n_t, m_r),
+                                   foo(pho, n_bs, m_cue),
+                                   foo(pho, m_cue, n_bs)
+                                   ), axis=1)
         # recurrence generate all Ns samples of Jakes.
-        H_set = np.zeros([n_recvs, n_recvs, int(Ns)], dtype=np.float32)
         pho = np.float32(scipy.special.k0(2*np.pi*fd*Ts))
+        H_set = np.zeros([n_channel, n_channel, int(Ns)], dtype=np.float32)
         H_set[:, :, 0] = calc_h_set(0)
         for i in range(1, int(Ns)):
             H_set[:, :, i] = H_set[:, :, i-1]*pho + calc_h_set(pho)
@@ -166,73 +166,82 @@ class PAEnv:
         notice that the interference from one Tx has same large-scale fading,
         Consistent with small-scale fading.
         """
-        n_t, m_r, n_bs, m_usr = self.n_t, self.m_r, self.n_bs, self.m_usr
-        n_r_devices, n_recvs = n_t * m_r, n_t * m_r + n_bs * m_usr
+        n_t, m_r, n_bs, m_cue = self.n_t, self.m_r, self.n_bs, self.m_cue
+        n_channel = self.n_channel
 
         # calculate distance matrix from initialized positions.
-        distance_matrix = np.zeros((n_recvs, n_recvs))
+        distance_matrix = np.zeros((n_channel, n_channel))
 
-        def get_distances(node):
-            """Calculate distances from other devices to given device."""
-            dis = np.zeros(n_recvs)
-            # d2d
-            for t_index, cluster in self.devices.items():
-                t_device = cluster['t_device']
-                delta_x, delta_y = t_device.x - node.x, t_device.y - node.y
-                distance = np.sqrt(delta_x**2 + delta_y**2)
-                dis[t_index*m_r: t_index*m_r+m_r] = distance
-            # bs
-            delta_x, delta_y = self.station.x - node.x, self.station.y - node.y
-            distance = np.sqrt(delta_x**2 + delta_y**2)
-            dis[n_r_devices:] = distance    # 已经有n_r_devices个信道了
-            return dis
+        devices = self.devices
+        rxs = list(itertools.chain(
+            (dr for c in devices.values() for dr in c['r_devices'].values()),
+            (cue for cue in self.cues.values()),
+            (self.station for _ in self.cues)
+        ))
 
-        # 接收器和干扰项都先考虑d2d再考虑基站
-        for t_index, cluster in self.devices.items():
-            r_devices = cluster['r_devices']
-            for r_index, r_device in r_devices.items():
-                distance_matrix[t_index * self.m_r +
-                                r_index] = get_distances(r_device)
-        for u_index, user in self.users.items():
-            distance_matrix[n_r_devices + u_index] = get_distances(user)
+        txs = list(itertools.chain(
+            (c['t_device'] for c in devices.values() for _ in c['r_devices']),
+            (self.station for _ in self.cues),
+            (cue for cue in self.cues.values())
+        ))
+
+        # TODO  检测distance和h_set的轴是否一致
+        # distance matrix
+        distance_matrix = np.array([
+            [utils.dist(rx, tx) for rx in rxs]
+            for tx in txs])
 
         self.distance_matrix = distance_matrix
 
-        # assign the minimum distance
-        min_dis = np.concatenate(
-            (np.repeat(self.r_dev, n_r_devices), np.repeat(self.r_bs, m_usr))
-        ) * np.ones((n_recvs, n_recvs))
-        std = 8. + slope * (distance_matrix - min_dis)
-        # random initialize lognormal variable
-        lognormal = np.random.lognormal(size=(n_recvs, n_recvs), sigma=std)
+        std = 8.    # std of shadow fading corresponding to lognormal
+        lognormal = np.random.lognormal(size=(n_channel, n_channel), sigma=std)
 
         # micro
         path_loss = lognormal * \
             pow(10., -(114.8 + 36.7*np.log10(distance_matrix))/10.)
         self.path_loss = path_loss
 
-    def __init__(self, n_levels,
-                 n_t_devices=9, m_r_devices=4, n_bs=1, m_usrs=4, **kwargs):
+    def __init__(self, n_level,
+                 n_pair=9, n_bs=1, m_cue=4, **kwargs):
         """Initialize PA environment"""
-        # set sttributes
-        self.n_t, self.m_r = n_t_devices, m_r_devices
-        self.n_bs, self.m_usr = n_bs, m_usrs
-        self.n_recvs = self.n_t * self.m_r + self.n_bs * self.m_usr
-        self.r_dev, self.r_bs, self.R_dev, self.R_bs = 0.001, 0.01, 0.1, 1
-        self.Ns, self.n_levels = 50, n_levels
-        self.min_power, self.max_power, self.thres_power = 5, 38, -114  # dBm
-        self.bs_power = 10  # W
+        # constant attributes
         self.m_state = 16
+        self.r_dev, self.r_bs, self.R_dev, self.R_bs = 0.001, 0.01, 0.1, 1
+        self.Ns = 50 if 'Ns' not in kwargs else kwargs['Ns']
+        self.bs_power, self.cue_power = '10W', '1W'  # 10W and 1W, respectively
+        self.min_power, self.max_power, self.noise_power = '5dBm', '38dBm', '-114dBm'
+
+        # set attributes
+        self.n_level = n_level
+        self.n_t, self.m_r = n_pair, 1  # each DT has 1 DR, constantly
+        self.n_bs, self.m_cue = n_bs, m_cue
+
+        # each bs-cue pair has 2 channel, uplink and downlink
+        self.n_channel = self.n_t * self.m_r + self.n_bs * self.m_cue * 2
+
         self.__dict__.update(kwargs)
+
         # set random seed
         if 'seed' in kwargs:
             seed = kwargs['seed'] if kwargs['seed'] > 1 else 799345
             np.random.seed(seed)
             print(f'PAEnv set random seed {seed}')
 
+        # set power
+        _, self.bs_power = utils.convert_power(self.bs_power)
+        _, self.cue_power = utils.convert_power(self.cue_power)
+        self.min_dBm, self.min_mW = utils.convert_power(self.min_power)
+        self.max_dBm, self.max_mW = utils.convert_power(self.max_power)
+        _, self.noise_mW = utils.convert_power(self.noise_power)
+
+        # set rb
+        if ('rb' in kwargs and kwargs['rb']=='duplex'):
+            self.n_rb = self.n_bs * self.m_cue
+        else:
+            self.n_rb = 2 * self.n_bs * self.m_cue
+
         # init attributes of pa env
         self.init_observation_space(kwargs)
-        self.init_power_levels()
         self.init_pos()  # init recv pos
         self.init_jakes(Ns=self.Ns)  # init rayleigh loss using jakes model
         self.init_path_loss(slope=0)  # init path loss
@@ -245,7 +254,7 @@ class PAEnv:
         return np.random.random((self.n_t * self.m_r, self.n_states))
 
     def sample(self):
-        sample_action = np.random.randint(0, 10, self.n_t * self.m_r)
+        sample_action = np.random.randint(0, self.n_level*self.n_rb, self.n_t * self.m_r).astype(np.int32)
         return sample_action
 
     def cal_rate(self, power, fading):
@@ -262,14 +271,13 @@ class PAEnv:
         Returns:
             a vector of channel rate.
         """
-        noise_power = 1e-3*pow(10., self.thres_power/10.)
         maxC = 1000.
         recv_power = power * fading
 
         signal_power = recv_power.diagonal()
         total_power = recv_power.sum(axis=1)
         inter_power = total_power - signal_power
-        sinr = signal_power / (inter_power + noise_power)
+        sinr = signal_power / (inter_power + self.noise_mW)
         sinr = np.clip(sinr, 0, maxC)
         rate = np.log(1. + sinr)/np.log(2)
 
@@ -300,8 +308,8 @@ class PAEnv:
         Returns:
             state consisted of assigned metrics ordered by assigned sorter.
         """
-        n_t, m_r, n_bs, m_usr = self.n_t, self.m_r, self.n_bs, self.m_usr
-        n_recvs = n_t * m_r + n_bs * m_usr
+        n_t, m_r, n_bs, m_cue = self.n_t, self.m_r, self.n_bs, self.m_cue
+        n_recvs = n_t * m_r + n_bs * m_cue
         m_state = self.m_state
 
         if m_state > n_recvs:
@@ -319,8 +327,8 @@ class PAEnv:
                 power_last[i, 0]
         ordered_fading = fading.copy()
         for i, _ in enumerate(ordered_fading):
-            ordered_fading[i, 0], ordered_fading[i, i] = \
-                ordered_fading[i, i], ordered_fading[i, 0]
+            ordered_fading[i, 0], ordered_fading[i,
+                                                 i] = ordered_fading[i, i], ordered_fading[i, 0]
 
         sinr_norm_fading = ordered_fading[:, 1:] / \
             np.tile(ordered_fading[:, 0:1], [1, n_recvs-1])
@@ -352,41 +360,38 @@ class PAEnv:
 
         return state[:self.n_t * self.m_r]
 
-    def decode_action(self, action, db=False):
+    def decode_action(self, action, dBm=False):
+        """decode action(especialy discrete) to RB&Power allocation."""
         action = action.squeeze()
         # check action count
-        if len(action) == self.n_t:
-            pass 
-        elif len(action) == self.n_channels:
+        if len(action) == self.n_t*self.m_r or len(action) == self.n_channels:
             # if action includes authorized users, abandon
-            action = action[self.n_t]
+            action = action[:self.n_t*self.m_r]
         else:
             msg = f"length of action should be n_recvs({self.n_recvs})" \
                 f" or n_t({self.n_t}), but is {len(action)}"
             raise ValueError(msg)
 
-        # convert actions
-        def calc_power(level):
-            if db:
-                db_level = (self.min_db-self.max_db) / self.n_level * level
-                return 1e-3 * np.power(10, db_level / 10) if level > 0 else 0
-            else:
-                return (self.min_power-self.max_power) / self.n_level * level
         d2d_alloc = {}
         for i_dt, a in enumerate(action):
-            # calc alloc
-            if len(a) == self.m_rb:
-                # Continuous action, direct to power
-                alloc = {rb: power for rb, power in enumerate(a) if power>0}
-            elif len(a) == self.m_rb * self.n_levels:
+            if a.dtype in [np.float32, np.float64]:
+                # Continuous action, direct to power of mW
+                alloc = {rb: power for rb, power in enumerate(a) if power > 0}
+            elif a.dtype in [np.int32, np.int64]:
                 # Discrete action, need convert
-                index = np.argmax(a)
-                rb, level = index // self.n_level, index % self.n_level
-                alloc = {rb: calc_power(level)}
+                rb, level = divmod(a, self.n_level)
+                if dBm:
+                    power = (self.max_dBm - self.min_dBm) / \
+                        self.n_level * level
+                    power = str(power)+'dBm' if power else '-infdBm'
+                else:
+                    power = (self.max_mW - self.min_mW) / self.n_level * level
+                    power = str(power)+'mW'
+                alloc = {rb: utils.convert_power(power).mW}
             else:
                 msg = f"Action shape {len(action)} is not supported."
                 raise ValueError(msg)
-            
+
             d2d_alloc[i_dt] = alloc
 
         # add allocation of bs and CUE
@@ -398,20 +403,12 @@ class PAEnv:
             # serial number in [m_cue, 2*m_cue) means downlink
             cue_alloc[cue] = {cue+self.m_cue: self.cue_power}
 
+        return {'bs': bs_alloc, 'cue': cue_alloc, 'd2d': d2d_alloc}
 
-        allocations = {
-            'bs': bs_alloc,
-            'cue': cue_alloc,
-            'd2d': d2d_alloc
-        }
-
-        return allocations
-
-
-    def step(self, action, db=False):
+    def step(self, action, dBm=False):
         h_set = self.H_set[:, :, self.cur_step]
         self.fading = np.square(h_set) * self.path_loss
-        self.allocations = self.decode_action(action, db=db)
+        self.allocations = self.decode_action(action, dBm=dBm)
 
         rate = self.cal_rate(self.allocations, self.fading)
 
@@ -465,3 +462,9 @@ class PAEnv:
         plt.savefig(save_path)
         plt.close(fig)
         return save_path
+
+if __name__ == '__main__':
+    env = PAEnv(10)
+    env.reset()
+    env.step(env.sample())
+    
