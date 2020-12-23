@@ -9,3 +9,8 @@ figs/
 *.ipynb
 all_data.pickle
 seed.json
+*/result.log
+workspace.py
+workspace2.py
+start.sh
+kill.sh
