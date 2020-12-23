@@ -1,18 +1,16 @@
 env: 
     seed:
                 799345
-    n_levels:
+    n_level:
                 10  # power level count
-    n_t_devices:
-                9
-    m_r_devices:
-                5
+    n_pair:
+                10
     n_bs:
                 1   # consant, don't change
-    m_usrs:
+    m_cue:
                 4
     bs_power:
-                10  # W
+                10W  # W
     R_bs:
             1   # adjust to match n_t_devices
     R_dev:
@@ -27,6 +25,10 @@ env:
             - power
             - rate
             - fading
+    m_state:
+            6
+    rb:
+            single
 agent:
     gamma:
             0.0 # discount rate
