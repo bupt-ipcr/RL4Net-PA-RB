@@ -3,7 +3,7 @@
 """
 @author: Jiawei Wu
 @create time: 2019-12-06 23:01
-@edit time: 2020-11-25 09:29
+@edit time: 2020-11-27 11:07
 @FilePath: /PA/pa_ddpg.py
 """
 
@@ -63,11 +63,11 @@ class ActorNet(nn.Module):
         self.seq = nn.Sequential(
             nn.Linear(n_states, 128),
             nn.ReLU(),
-            # nn.Linear(128, 64),
-            # nn.BatchNorm1d(64),
-            # nn.Linear(64, n_actions),
-            nn.Linear(128, n_actions)
+            nn.Linear(128, 64),
+            nn.ReLU(64),
+            nn.Linear(64, n_actions),
             # nn.Sigmoid()
+            nn.Tanh()
         )
 
         if CUDA:
@@ -81,7 +81,7 @@ class ActorNet(nn.Module):
         """
         x = x.cuda() if CUDA else x
         action_value = self.seq(x)
-        # action_value = action_value * self.bound
+        action_value = action_value * self.bound
         return action_value
 
 
@@ -104,17 +104,17 @@ class DDPG(DDPGBase):
 
     def get_action(self, s):
         a = self._get_action(s)
-        a = 1 / (1 + np.exp(-a + 20))
-        a *= self.action_bound
+        # a = 1 / (1 + np.exp(-a + 20))
+        # a *= self.action_bound
         return a
 
     def get_action_noise(self, state, rate=1):
         action = self.get_action(state)
         # action_noise = np.random.normal(0, 2, size=(1, action.shape[1])) * rate
         # 使用均匀分布
-        action_noise = np.random.uniform(-self.action_bound, self.action_bound, size=(action.shape[0], 1)) * rate
+        action_noise = np.random.uniform(-self.action_bound, self.action_bound, size=action.shape) * .2 * rate
 
-        action = np.clip(action + action_noise, 0, 10)
+        action = np.clip(action + action_noise, -38, 38)
         return action
 
     def add_step(self, s, a, r, d, s_):
