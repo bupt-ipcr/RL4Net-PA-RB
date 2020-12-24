@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+"""
+@author: Jiawei Wu
+@create time: 1970-01-01 08:00
+@edit time: 2020-12-24 10:48
+@file: /PA/pa_dqn.py
+@desc: 
+"""
 import utils
 import numpy as np
 from policy_dqn import DQN
@@ -7,9 +16,11 @@ MAX_EPISODES = 1000
 DECAY_THRES = 500
 
 
-def rl_loop(env, agent, logdir):
+@utils.timeit
+def dqn_loop(env, agent, logdir):
     summary_writer = SummaryWriter(log_dir=logdir)
     # train
+    print(f"Start DQN loop.")
     train_his = []
     for ep in range(MAX_EPISODES):
         cur_state = env.reset()
@@ -19,51 +30,59 @@ def rl_loop(env, agent, logdir):
         agent.epsilon = max((DECAY_THRES - ep) / DECAY_THRES, 0.001)
         while True:
             action = agent.get_action(cur_state)[0]
-            next_state, reward, done, info = env.step(action.astype(np.int32), unit='dBm')
+            next_state, reward, done, info = env.step(
+                action.astype(np.int32), unit='dBm')
             next_state = next_state.reshape((-1, env.n_states))
             agent.add_steps(cur_state, action, reward, done, next_state)
             loss = agent.learn()
             if loss:
                 summary_writer.add_scalar('loss', loss, agent.eval_step)
             cur_state = next_state
-            ep_his.append(reward/env.n_rx)
+            ep_his.append(info['rate'])
             if done:
                 cum_reward = np.mean(ep_his)
                 summary_writer.add_scalar('reward', cum_reward, ep)
                 train_his.append({'cum_reward': cum_reward, 'ep_his': ep_his})
                 if len(train_his) % 10 == 0:
                     print('EP: ', len(train_his),  'DQN:',
-                          np.mean([t['cum_reward'] for t in  train_his[-10:]]), flush=True)
+                          np.mean([t['cum_reward'] for t in train_his[-10:]]), info, flush=True)
                 break
-    print('calculating benckmarks')
+
     # find best ep_his
     train_his.sort(key=lambda o: o['cum_reward'], reverse=True)
     dqn_result = train_his[0]['cum_reward'], train_his[0]['ep_his']
-    results = cal_benchmarks(env)
-    result_path = logdir / 'results.log'
-    with result_path.open('w') as f:
-        for result in results:
-            f.write(result[0] + ': ' + str(result[1]) + '\r\n')
-        f.write('dqn: ' + str(dqn_result[0]) + '\r\n')
-        f.write(str(dqn_result[1]))
-    print('done')
+    return dqn_result
 
 
-def get_instance():
-    env = utils.get_env()
-    # for k, v in env.__dict__.items():
-    #     print(f'{k}: {v}')
+def get_dqn_agent(env):
     n_states = env.n_states
     n_actions = env.n_actions
     agent = DQN(n_states, n_actions)
+    return agent
+
+
+def get_instances():
+    env = utils.get_env()
+    agent = get_dqn_agent(env)
     logdir = utils.get_logdir()
     return env, agent, logdir
 
 
+def demo(env, agent, logdir):
+    dqn_result = dqn_loop(env, agent, logdir)
+
+    result_path = logdir / 'results.log'
+    with result_path.open('w') as f:
+        # RL results
+        f.write('dqn: ' + str(dqn_result[0]) + '\r\n')
+        # f.write(str(dqn_result[1]))
+        # benckmarks
+        results = cal_benchmarks(env)
+        for result in results:
+            f.write(result[0] + ': ' + str(result[1]) + '\r\n')
+    print('done')
+
+
 if __name__ == '__main__':
-    from datetime import datetime
-    start = datetime.now()
-    instances = get_instance()
-    rl_loop(*instances)
-    end = datetime.now()
-    print('cost time:', end - start)
+    instances = get_instances()
+    demo(*instances)
