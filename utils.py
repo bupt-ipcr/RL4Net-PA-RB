@@ -1,13 +1,24 @@
 import json
 from datetime import datetime
 from pathlib import Path
-
+from functools import wraps
 import numpy as np
 import yaml
-from vvlab.envs.power_allocation.pa_env import PAEnv
+from vvlab.envs.power_allocation import PAEnv_v0, PAEnv_v1
 
 config_path = 'config.yaml'
 default_config_path = 'default_config.yaml'
+
+
+def timeit(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = datetime.now()
+        ret = func(*args, **kwargs)
+        end = datetime.now()
+        print(f'<{func.__name__}> cost time:', end - start)
+        return ret
+    return wrapper
 
 
 def create_seeds():
@@ -32,7 +43,7 @@ def get_env(**kwargs):
     config = get_config(config_path)
     env_config = config['env']
     env_config.update(kwargs)
-    env = PAEnv(**env_config)
+    env = PAEnv_v1(**env_config)
     return env
 
 
