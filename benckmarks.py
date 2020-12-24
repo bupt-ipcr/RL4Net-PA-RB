@@ -139,7 +139,7 @@ def cal_benchmark(algorithm, env):
         if algorithm.name == 'exhausted': t.update()
         p = algorithm.func(env)
         s_, r, d, i = env.step(p, unit=algorithm.unit)
-        cum_r.append(r/env.n_rx)
+        cum_r.append(r/env.n_channel)
         if d:
             return algorithm.name, np.mean(cum_r)
 
@@ -155,7 +155,7 @@ def cal_benchmarks(env, args=get_args()):
         Algorithm('fullrandom', fullrandom_algorithm, 'mW'),
         Algorithm('fullmax', fullmax_algorithm, 'mW'),
     ]
-    if args:
+    if args.es:
         algorithms.append(Algorithm('exhausted', exhausted_algorithm, 'dBm'))
     results = []
     for algorithm in algorithms:
