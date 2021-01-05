@@ -20,11 +20,11 @@ env:
     r_dev:
             0.001
     sorter:
-            power
+            recv_power
     metrics:
-            - power
+            - emit_power
+            - recv_power
             - rate
-            - fading
     m_state:
             16
     rb:
