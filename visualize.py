@@ -17,12 +17,11 @@ import pickle
 
 here = Path()
 figs = here / 'figs'
-valid_keys = ['Number of DRs in each cluster', 'Number of DTs',
+valid_keys = ['Number of D2D pairs',
               'Number of CUE', 'BS Power (W)', 'Batch Size']
 alias = {
-    'bs_power': 'BS Power (W)', 'm_usrs': 'Number of CUE',
-    'n_t_devices': 'Number of DTs', 'batch_size': 'Batch Size',
-    'm_r_devices': 'Number of DRs in each cluster'
+    'bs_power': 'BS Power (W)', 'm_cue': 'Number of CUE',
+    'n_pair': 'Number of D2D pairs', 'batch_size': 'Batch Size',
 }
 plot_funcs = {}
 
@@ -92,10 +91,10 @@ def displot(data, key, aim, **kwargs):
     ax = sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
                      hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
                      height=3, aspect=1.5, facet_kws=dict(legend_out=False),
-                    # aspect=1.5, facet_kws=dict(legend_out=False),
+                     # aspect=1.5, facet_kws=dict(legend_out=False),
                      **kwargs)
     ax.legend.set_title('')
-    ax.legend._loc=7
+    ax.legend._loc = 7
     plt.xlabel(f'Average {aim} (bps/Hz)')
     plt.grid(axis="y")
     return fig, ax
@@ -139,8 +138,11 @@ def get_datas(directory: Path()):
                             'dqn': 'DRPA',
                             'fp': 'FP',
                             'wmmse': 'WMMSE',
-                            'random': 'random',
-                            'maximum': 'maximum'
+                            'random': 'Rnd',
+                            'maximum': 'Max',
+                            'fullrandom': 'Full-Rnd',
+                            'fullmax': 'Full-Max',
+                            'madqn': 'MADRPA',
                         }
                         sub_datas.append({
                             'algorithm': algorithm_mapping[algorithm],
@@ -165,8 +167,7 @@ def get_all_data(args):
     all_data = []
     for logdir in tqdm(list(runsdir.iterdir()), desc="Gathering all data"):
         conf = config.copy()
-        n_recvs = conf['n_t_devices'] * conf['m_r_devices'] +\
-            conf['n_bs'] * conf['m_usrs']
+        n_recvs = conf['n_pair'] + conf['n_bs'] * conf['m_cue']
         if logdir.name != 'default':
             changes = logdir.name.split('&')
             for change in changes:
@@ -183,8 +184,6 @@ def get_all_data(args):
         for data in datas:
             data.update(conf)
             data['sum-rate'] = data['Rate'] * n_recvs
-        if not 2 < conf['bs_power'] < 40:
-            continue
         all_data.extend(datas)
     # save
     all_data = pd.DataFrame(all_data)
@@ -195,7 +194,7 @@ def get_all_data(args):
     return all_data
 
 
-@ register
+@register
 def plot_avg(all_data):
     for key in tqdm(valid_keys, desc="Ploting AVG"):
         for aim in ['Rate', 'sum-rate']:
@@ -208,7 +207,7 @@ def plot_avg(all_data):
 def plot_box(all_data):
     for key in tqdm(valid_keys, desc="Ploting Box"):
         for aim in ['Rate', 'sum-rate']:
-            fig = boxplot(data=all_data, key=key, aim=aim)
+            fig, _ = boxplot(data=all_data, key=key, aim=aim)
             check_and_savefig(figs / f'avg/{aim}-{key}.png')
             plt.close(fig)
             check_and_savefig(figs / f'box/{aim}-{key}.png')
@@ -223,7 +222,7 @@ def plot_cdf(all_data):
         plt.close(fig)
 
 
-@ register
+@register
 def plot_sbp(all_data):
     """Plot sum bs power"""
     all_data['Sum BS Power'] = all_data['BS Power'] * all_data['m_usrs']
@@ -307,6 +306,19 @@ def plot_icc(all_data):
                           dpi=300)
         plt.close(fig)
 
+@register
+def plot_jsac(all_data):
+
+    sns.set_style('white')
+    # fig = plt.figure(figsize=(10, 7.5))
+    for aim in ['Rate', 'sum-rate']:
+        fig = plt.figure()
+        ax = sns.boxplot(data=all_data, x='algorithm', y=aim, whis=100)
+        ax.legend().set_title('')
+        plt.ylabel(f'Average {aim} (bps/Hz)')
+        ax.grid(axis="y")
+        check_and_savefig(figs / f'box/{aim}.png')
+        plt.close(fig)
 
 @register
 def plot_all(all_data):

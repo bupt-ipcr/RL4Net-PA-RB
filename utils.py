@@ -5,7 +5,7 @@ from functools import wraps
 import numpy as np
 import yaml
 from vvlab.envs.power_allocation import PAEnv_v0, PAEnv_v1
-
+from argparse import ArgumentParser
 config_path = 'config.yaml'
 default_config_path = 'default_config.yaml'
 
@@ -30,6 +30,77 @@ def create_seeds():
     with save_path.open('w') as f:
         json.dump(str(seeds), f)
     return seeds
+
+
+def check_exist(logdir):
+    # check if logdir has result.log
+    parent = logdir.parent
+    if parent.exists():
+        for train_dir in parent.iterdir():
+            for train_file in train_dir.iterdir():
+                if train_file.name == "results.log":
+                    return True
+        # clear
+        for train_dir in parent.iterdir():
+            for train_file in train_dir.iterdir():
+                train_file.unlink()
+            try:
+                train_dir.rmdir()
+            except:
+                print(f'{train_dir}.rmdir() failed')
+            print(f'{train_dir}.rmdir()')
+    return False
+
+
+def get_args():
+    parser = ArgumentParser()
+    parser.add_argument('-e', '--env_changes', type=str,
+                        action='append',
+                        default=[], nargs='+',
+                        help='Changes of env compare to default config.')
+    parser.add_argument('-a', '--agent_changes', type=str,
+                        action='append',
+                        default=[], nargs='+',
+                        help='Changes of agent compare to default config.')
+    parser.add_argument('-c', '--card_no', type=int,
+                        help='GPU card no.', default=0)
+    parser.add_argument('-o', '--offset', type=int,
+                        help='Seed offset.', default=0)
+    parser.add_argument('-s', '--seeds', type=int,
+                        help='Seed count.', default=100)
+    parser.add_argument('-i', '--ignore', action='store_true',
+                        help='Ignore processed seed.', default=True)
+    args = parser.parse_args()
+    env = {}
+    for changes in args.env_changes:
+        for change in changes:
+            key, value = change.split('=')
+            try:
+                value = int(value)
+            except:
+                try:
+                    value = json.loads(value)
+                except:
+                    pass
+            env[key] = value
+    args.env = env
+    agent = {}
+    # card_no
+    agent['card_no'] = args.card_no
+    for changes in args.agent_changes:
+        for change in changes:
+            key, value = change.split('=')
+            try:
+                value = int(value)
+            except:
+                try:
+                    value = json.loads(value)
+                except:
+                    pass
+            agent[key] = value
+    args.agent = agent
+
+    return args
 
 
 def get_config(path):
