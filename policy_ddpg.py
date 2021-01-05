@@ -3,8 +3,8 @@
 """
 @author: Jiawei Wu
 @create time: 2019-12-06 23:01
-@edit time: 2020-11-27 11:07
-@FilePath: /PA/pa_ddpg.py
+@edit time: 2020-12-28 17:22
+@file: /PA/policy_ddpg.py
 """
 
 import torch.nn as nn
@@ -66,8 +66,8 @@ class ActorNet(nn.Module):
             nn.Linear(128, 64),
             nn.ReLU(64),
             nn.Linear(64, n_actions),
-            # nn.Sigmoid()
-            nn.Tanh()
+            nn.Sigmoid()
+            # nn.Tanh()
         )
 
         if CUDA:
@@ -81,7 +81,7 @@ class ActorNet(nn.Module):
         """
         x = x.cuda() if CUDA else x
         action_value = self.seq(x)
-        action_value = action_value * self.bound
+        # action_value = action_value * self.bound
         return action_value
 
 
@@ -111,10 +111,16 @@ class DDPG(DDPGBase):
     def get_action_noise(self, state, rate=1):
         action = self.get_action(state)
         # action_noise = np.random.normal(0, 2, size=(1, action.shape[1])) * rate
+        # # action的后处理
+        # action = action.squeeze()
+        # action = self.action_bound * np.tanh(action/20)
+        # for i, a in enumerate(action):
+        #     action[i][action[i]!=np.max(a)] = 0
         # 使用均匀分布
-        action_noise = np.random.uniform(-self.action_bound, self.action_bound, size=action.shape) * .2 * rate
+        action_noise = np.random.uniform(-self.action_bound, self.action_bound, size=action.shape)  * rate
 
-        action = np.clip(action + action_noise, -38, 38)
+        action = np.clip(action + action_noise, 0, self.action_bound)
+        action[action!=np.max(action)] = 0
         return action
 
     def add_step(self, s, a, r, d, s_):
@@ -123,4 +129,4 @@ class DDPG(DDPGBase):
     def add_steps(self, cur_state, action, reward, done, next_state):
         size = action.shape[0]
         for i in range(size):
-            self.add_step(cur_state[i], action[i], reward, done, next_state[i])
+            self.add_step(cur_state[i], action[i], reward[i], done, next_state[i])

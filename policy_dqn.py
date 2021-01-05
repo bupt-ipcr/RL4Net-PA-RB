@@ -3,8 +3,8 @@
 """
 @author: Jiawei Wu
 @create time: 2019-12-07 20:17
-@edit time: 2020-11-23 11:29
-@FilePath: /PA/pa_dqn.py
+@edit time: 2020-12-24 09:34
+@file: /PA/policy_dqn.py
 """
 from functools import reduce
 import numpy as np
@@ -63,7 +63,7 @@ class DQN(DQNBase):
     def add_steps(self, cur_state, action, reward, done, next_state):
         size = action.shape[0]
         for i in range(size):
-            self.add_step(cur_state[i], action[i], reward, done, next_state[i])
+            self.add_step(cur_state[i], action[i], reward[i], done, next_state[i])
 
     def get_action(self, state):
         # 将行向量转为列向量（1 x n_states -> n_states x 1 x 1)

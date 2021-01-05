@@ -3,7 +3,7 @@
 """
 @author: Jiawei Wu
 @create time: 1970-01-01 08:00
-@edit time: 2020-12-24 10:48
+@edit time: 2020-12-28 10:45
 @file: /PA/pa_dqn.py
 @desc: 
 """
@@ -12,6 +12,8 @@ import numpy as np
 from policy_dqn import DQN
 from torch.utils.tensorboard import SummaryWriter
 from benckmarks import cal_benchmarks
+from argparse import ArgumentParser
+import json
 MAX_EPISODES = 1000
 DECAY_THRES = 500
 
@@ -54,17 +56,20 @@ def dqn_loop(env, agent, logdir):
     return dqn_result
 
 
-def get_dqn_agent(env):
+def get_dqn_agent(env, **kwargs):
     n_states = env.n_states
     n_actions = env.n_actions
-    agent = DQN(n_states, n_actions)
+    agent = DQN(n_states, n_actions, **kwargs)
     return agent
 
 
-def get_instances():
-    env = utils.get_env()
-    agent = get_dqn_agent(env)
-    logdir = utils.get_logdir()
+def get_instances(args=utils.get_args()):
+    env = utils.get_env(**args.env)
+    agent = get_dqn_agent(env, **args.agent)
+    conf = utils.get_config('config.yaml')
+    conf['env'].update(args.env)
+    conf['agent'].update(args.agent)
+    logdir = utils.get_logdir(conf)
     return env, agent, logdir
 
 

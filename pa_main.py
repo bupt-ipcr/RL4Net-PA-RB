@@ -3,8 +3,8 @@
 """
 @author: Jiawei Wu
 @create time: 1970-01-01 08:00
-@edit time: 2020-12-23 15:30
-@FilePath: /PA/pa_main.py
+@edit time: 2020-12-31 09:56
+@file: /PA/pa_main.py
 @desc: 
 """
 import utils
@@ -16,15 +16,23 @@ MAX_EPISODES = 1000
 DECAY_THRES = 400
 
 
-@utils.timeit
-def rl_loop():
-    env = utils.get_env()
-    logdir = utils.get_logdir()
 
-    madqn_agents = get_madqn_agents(env)
+
+@utils.timeit
+def rl_loop(args=utils.get_args()):
+    env = utils.get_env(**args.env)
+    conf = utils.get_config('config.yaml')
+    conf['env'].update(args.env)
+    conf['agent'].update(args.agent)
+    logdir = utils.get_logdir(conf)
+
+    if args.ignore and utils.check_exist(logdir):
+        print(f"Ingore seed {conf['env']['seed']}!")
+        return
+    madqn_agents = get_madqn_agents(env, **args.agent)
     madqn_result = madqn_loop(env, madqn_agents, logdir)
 
-    dqn_agent = get_dqn_agent(env)
+    dqn_agent = get_dqn_agent(env, **args.agent)
     dqn_result = dqn_loop(env, dqn_agent, logdir)
 
     result_path = logdir / 'results.log'
@@ -38,7 +46,7 @@ def rl_loop():
         results = cal_benchmarks(env)
         for result in results:
             f.write(result[0] + ': ' + str(result[1]) + '\r\n')
-    print('done')
+    print('Done!')
 
 
 if __name__ == '__main__':
