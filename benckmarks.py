@@ -11,6 +11,8 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--seed', type=int, default=799345)
     parser.add_argument('-e', '--es', action='store_true')
+    parser.add_argument('-c', '--card_no', type=int,
+                        help='GPU card no.', default=0)
     args = parser.parse_args()
     return args
 
@@ -116,13 +118,14 @@ def exhausted_algorithm(env):
 
     env.reset()
     cur = datetime.now()
-    best_reward, best_action = 0, None
+    best_rate, best_action = 0, None
     # for action in tqdm((np.array(a, dtype=np.int32) for a  in itertools.product(range(env.n_actions), repeat=env.n_pair))):
     for action in (np.array(a, dtype=np.int32) for a  in itertools.product(range(env.n_actions), repeat=env.n_pair)):
         env.cur_step = step
-        s, r, d, _ = env.step(action, unit="dBm")
-        if r > best_reward:
-            best_reward, best_action = r, action
+        s, r, d, i = env.step(action, unit="dBm")
+        rate = i['rate']
+        if rate > best_rate:
+            best_rate, best_action = rate, action
         # if datetime.now() - cur > timedelta(seconds=10):
             # print('exhausted time > 2s, exit')
             # sys.exit(1)
@@ -132,19 +135,20 @@ def exhausted_algorithm(env):
 
 def cal_benchmark(algorithm, env):
     env.reset()
-    cum_r = []
+    cum_rate = []
     if algorithm.name == 'exhausted':
         t = tqdm(desc=f"Calculating {algorithm.name}:", total=env.Ns)
     while True:
         if algorithm.name == 'exhausted': t.update()
         p = algorithm.func(env)
         s_, r, d, i = env.step(p, unit=algorithm.unit)
-        cum_r.append(r/env.n_channel)
+        rate = i['rate']
+        cum_rate.append(rate)
         if d:
-            return algorithm.name, np.mean(cum_r)
+            return algorithm.name, np.mean(cum_rate)
 
 
-def cal_benchmarks(env, args=get_args()):
+def cal_benchmarks(env, args=None):
     from collections import namedtuple
     Algorithm = namedtuple('Algorithm', 'name func unit')
     algorithms = [
@@ -155,7 +159,7 @@ def cal_benchmarks(env, args=get_args()):
         Algorithm('fullrandom', fullrandom_algorithm, 'mW'),
         Algorithm('fullmax', fullmax_algorithm, 'mW'),
     ]
-    if args.es:
+    if args and args.es:
         algorithms.append(Algorithm('exhausted', exhausted_algorithm, 'dBm'))
     results = []
     for algorithm in algorithms:
@@ -165,6 +169,6 @@ def cal_benchmarks(env, args=get_args()):
 if __name__ == '__main__':
     args = get_args()
     env = utils.get_env(seed=args.seed)
-    results = cal_benchmarks(env)
+    results = cal_benchmarks(env, args=get_args())
     for name, reward in results:
         print(f'{name}: {reward}', flush=True)
