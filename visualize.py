@@ -1,19 +1,30 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+"""
+@author: Jiawei Wu
+@create time: 2021-01-06 20:21
+@edit time: 2021-01-07 17:09
+@file: /workspace/RL4Net-PA-RB/visualize.py
+@desc: 
+"""
 from operator import and_
 from functools import reduce
 from inspect import isfunction
 import json
 import re
-
+from tensorboard.backend.event_processing import event_accumulator
 from matplotlib.pyplot import plot
 import utils
 from argparse import ArgumentParser
 from pathlib import Path
+import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from tqdm import tqdm, trange
 import pickle
+from collections import namedtuple, OrderedDict, deque
 
 here = Path()
 figs = here / 'figs'
@@ -68,58 +79,10 @@ def get_default_config(rename=False):
 dft_config = get_default_config(rename=True)
 
 
-def lineplot(data, key, aim, **kwargs):
-    sns.set_style('whitegrid')
-    # fig = plt.figure(figsize=(10, 7.5))
-    fig = plt.figure()
-    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-    ) if k in valid_keys and k != key))
-    plt.xticks(sorted(list(set(data[key]))))
-    ax = sns.lineplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
-                      hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                      style="algorithm", markers=True, dashes=False, ci=None,
-                      markersize=8, **kwargs)
-    ax.legend().set_title('')
-    plt.ylabel(f'Average {aim} (bps/Hz)')
-    return fig, ax
-
-
-def displot(data, key, aim, **kwargs):
-    sns.set_style('white')
-    # fig = plt.figure(figsize=(10, 7.5))
-    fig = plt.figure()
-    ax = sns.displot(data=data, x=aim, kind="ecdf", hue="algorithm",
-                     hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                     height=3, aspect=1.5, facet_kws=dict(legend_out=False),
-                     # aspect=1.5, facet_kws=dict(legend_out=False),
-                     **kwargs)
-    ax.legend.set_title('')
-    ax.legend._loc = 7
-    plt.xlabel(f'Average {aim} (bps/Hz)')
-    plt.grid(axis="y")
-    return fig, ax
-
-
-def boxplot(data, key, aim, **kwargs):
-    sns.set_style('white')
-    # fig = plt.figure(figsize=(10, 7.5))
-    fig = plt.figure()
-    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-    ) if k in valid_keys and k != key))
-    plt.xticks(sorted(list(set(data[key]))))
-    ax = sns.boxplot(data=data[cur_index], x=key, y=aim, hue="algorithm",
-                     hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                     showfliers=False, **kwargs)
-    ax.legend().set_title('')
-    plt.ylabel(f'Average {aim} (bps/Hz)')
-    ax.grid(axis="y")
-    return fig, ax
-
-
 def check_and_savefig(path: Path(), *args, **kwargs):
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
-    plt.savefig(path, *args, **kwargs)
+    plt.savefig(path, *args, **kwargs, dpi=300)
 
 
 def get_datas(directory: Path()):
@@ -168,7 +131,7 @@ def get_all_data(args):
     for logdir in tqdm(list(runsdir.iterdir()), desc="Gathering all data"):
         conf = config.copy()
         n_recvs = conf['n_pair'] + conf['n_bs'] * conf['m_cue']
-        if logdir.name != 'default':
+        if logdir.is_dir() and logdir.name != 'default':
             changes = logdir.name.split('&')
             for change in changes:
                 key, value = change.split('=')
@@ -194,144 +157,214 @@ def get_all_data(args):
     return all_data
 
 
-@register
-def plot_avg(all_data):
-    for key in tqdm(valid_keys, desc="Ploting AVG"):
-        for aim in ['Rate', 'sum-rate']:
-            fig = lineplot(data=all_data, key=key, aim=aim)
-            check_and_savefig(figs / f'avg/{aim}-{key}.png')
-            plt.close(fig)
+def get_events(logdir):
+    datas = {}
+    tmp = []
+    for file in logdir.iterdir():
+        if file.is_dir(): return get_events(list(file.iterdir())[0])
+        else:
+            if file.name.startswith('events'):
+                ea=event_accumulator.EventAccumulator(str(file.resolve()))
+                ea.Reload()
+                data = np.array([i.value for i in ea.scalars.Items('reward')])
+                tmp.append(data)
+            else:
+                assert file.name == 'results.log'
+                with file.open('r') as f:
+                    for line in f.readlines():
+                        algorithm, rate = line.split(': ')
+                        datas[algorithm] = float(rate[:-1])
+    assert len(tmp) == 2
+    madqn, dqn = (tmp[0], tmp[1]) if tmp[0].sum() > tmp[1].sum() else (tmp[1], tmp[0])
+    for k in datas.keys(): datas[k] = np.full(len(dqn), datas[k])
+    datas['dqn'] = dqn
+    datas['madqn'] = madqn
+    return datas
 
+def get_events_data(args):
+    runsdir = here / args.dir
+    # try to load data from pickle
+    save_file = here / 'events_data.pickle'
+    if not args.reload and save_file.exists():
+        with save_file.open('rb') as f:
+            events_data = pickle.load(f)
+            print('Load data from pickle.')
+            return events_data
+    # single, duplex, default, m_state_8, m_state_20, n_level_18, n_level14
+    # default: m_state_16, n_level_10
+    logdir = Path('runs-jsac')
+    datas = {}
+    for dir_ in logdir.iterdir():
+        if 'n_level=14' in dir_.name: datas['n_level_14'] = get_events(dir_)
+        elif 'n_level=18' in dir_.name: datas['n_level_18'] = get_events(dir_)
+        elif 'm_state=8' in dir_.name: datas['m_state_8'] = get_events(dir_)
+        elif 'm_state=20' in dir_.name: datas['m_state_20'] = get_events(dir_)
+        elif 'm_cue=2' in dir_.name and 'rb=single' in dir_.name: datas['single'] = get_events(dir_)
+        elif 'm_cue=2' in dir_.name and 'rb=single' not in dir_.name: datas['duplex'] = get_events(dir_)
+        else: datas['m_state_16'] = datas['n_level_10'] = get_events(dir_)
+    datas = pd.DataFrame(datas)
+    datas.to_pickle(str(save_file))
+    return datas
+    
 
-@register
-def plot_box(all_data):
-    for key in tqdm(valid_keys, desc="Ploting Box"):
-        for aim in ['Rate', 'sum-rate']:
-            fig, _ = boxplot(data=all_data, key=key, aim=aim)
-            check_and_savefig(figs / f'avg/{aim}-{key}.png')
-            plt.close(fig)
-            check_and_savefig(figs / f'box/{aim}-{key}.png')
-            plt.close(fig)
+def smooth(d):
+    S_RANGE = 3
+    S_RATIO = 0.6
+    def _smooth(d_):
+        tmp = deque(maxlen=S_RANGE)
+        # first traverse, get average
+        d_avg  = []
+        for i in d_:
+            tmp.append(i)
+            d_avg.append(np.mean(tmp))
+        d_smooth = [(1-S_RATIO)*o + S_RATIO*m for o, m in zip(d_, d_avg)]
+        return d_smooth
 
-
-@register
-def plot_cdf(all_data):
-    for aim in tqdm(['Rate', 'sum-rate'], desc="Ploting CDF"):
-        fig = displot(data=all_data, key='', aim=aim)
-        check_and_savefig(figs / f'cdf/{aim}.png')
-        plt.close(fig)
-
-
-@register
-def plot_sbp(all_data):
-    """Plot sum bs power"""
-    all_data['Sum BS Power'] = all_data['BS Power'] * all_data['m_usrs']
-    cur_index = reduce(and_, (all_data[k] == v for k, v in dft_config.items(
-    ) if k in valid_keys and k not in {'Number of CUE', 'BS Power', 'Sum BS Power'}))
-    key = 'Sum BS Power'
-    for aim in tqdm(['Rate', 'sum-rate'], desc='Ploting SBP'):
-        fig = plt.figure(figsize=(15, 10))
-        sns.boxplot(x=key, y=aim, hue="algorithm", hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                    data=all_data[cur_index], palette="Set1", showfliers=False)
-        check_and_savefig(figs / f'box/{aim}-{key}.png')
-        plt.close(fig)
-
-        fig = plt.figure(figsize=(15, 10))
-        sns.lineplot(data=all_data[cur_index], x=key, y=aim, hue="algorithm",
-                     hue_order=['DRPA', 'FP', 'WMMSE', 'maximum', 'random'],
-                     style="algorithm", markers=True, dashes=False, ci=None)
-        plt.xticks(sorted(list(set(all_data[cur_index][key]))))
-        check_and_savefig(figs / f'avg/{aim}-{key}.png')
-        plt.close(fig)
-
-
-@register
-def plot_env(*args):
-    seed = 312691
-    env = utils.get_env(seed=seed, n_t_devices=3,
-                        m_r_devices=4, m_usrs=4, R_dev=0.25)
-    import matplotlib.patches as mpatches
-
-    def cir_edge(center, radius, color):
-        patch = mpatches.Circle(center, radius, fc='white', ec=color, ls='--')
-        return patch
-
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.set_xlim(-1.2, 1.2)
-    ax.set_ylim(-1.2, 1.2)
-
-    # draw d2d pairs
-    for t_idx, pair in env.devices.items():
-        t, rs = pair['t_device'], pair['r_devices']
-        # draw edge
-        ax.add_patch(cir_edge((t.x, t.y), env.R_dev, 'green'))
-        # draw t device
-        ax.scatter([t.x], [t.y], marker='s', s=100, c='green', zorder=10)
-        # draw r devices
-        for r_idx, r in rs.items():
-            ax.scatter([r.x], [r.y], marker='o', s=60, c='green', zorder=10)
-
-    # draw cell and bs
-    cell_xs = env.R_bs * \
-        np.array([0, np.sqrt(3)/2, np.sqrt(3)/2,
-                  0, -np.sqrt(3)/2, -np.sqrt(3)/2, 0])
-    cell_ys = env.R_bs * np.array([1, .5, -.5, -1, -.5, .5, 1])
-    ax.plot(cell_xs, cell_ys, color='black')
-
-    ax.scatter([0.0], [0.0], marker='^', s=100, c='blue', zorder=30)
-    # draw usrs
-    for idx, usr in env.users.items():
-        ax.scatter([usr.x], [usr.y], marker='x', s=100, c='orange', zorder=20)
-        ax.plot([0, usr.x], [0, usr.y], ls='--', c='blue', zorder=20)
-
-    check_and_savefig(figs / f'env/{seed}.png')
-    plt.close(fig)
-
+    for k, v in d.items():
+        d[k] = _smooth(v)
+    return d
 
 @register
-def plot_icc(all_data):
-    aim, palette = "sum-rate", 'Set1'
-    # missions
-    missions = [('CDF', displot), ('BS Power (W)', lineplot),
-                ('Number of CUE', lineplot), ('Number of DRs in each cluster', boxplot),
-                ('Number of DTs', boxplot)]
-    for mission in tqdm(missions, desc="Ploting ICC"):
-        key, func = mission
-
-        fig, ax = func(data=all_data, key=key, aim=aim,
-                       palette=sns.color_palette(palette, 5))
-        if func == lineplot:
-            ax.set_ylim((20, 80))
-        check_and_savefig(figs / f'icc/{aim}-{key}-{palette}.png',
-                          dpi=300)
-        plt.close(fig)
-
-@register
-def plot_jsac(all_data):
+def plot_jsac_B_1(edata, adata):
 
     sns.set_style('white')
     # fig = plt.figure(figsize=(10, 7.5))
-    for aim in ['Rate', 'sum-rate']:
-        fig = plt.figure()
-        ax = sns.boxplot(data=all_data, x='algorithm', y=aim, whis=100)
-        ax.legend().set_title('')
-        plt.ylabel(f'Average {aim} (bps/Hz)')
-        ax.grid(axis="y")
-        check_and_savefig(figs / f'box/{aim}.png')
-        plt.close(fig)
+    fig = plt.figure()
+    ax = sns.boxplot(data=all_data, x='algorithm', y='Rate', whis=100)
+    plt.title("algorithms ranking (box)")
+    plt.ylabel(f'Average Rate (bps/Hz)')
+    ax.grid(axis="y")
+    check_and_savefig(figs / f'jsac/B_1.png')
+    plt.close(fig)
 
 @register
-def plot_all(all_data):
+def plot_jsac_B_2(edata, adata):
+    single = edata['single']
+    algorithms = OrderedDict({
+        'ES': single['exhausted'],
+        'MADQN': single['madqn'],
+        'DQN': single['dqn'],
+        'RR-FP': single['fp'],
+        'RR-WMMSE': single['wmmse'],
+        'RR-MAX': single['maximum'],
+        'RR-RND': single['random'],
+        'MAX': single['fullmax'],
+        'RND': single['fullrandom'],
+    })
+    algorithms = smooth(algorithms)
+    a_cnt, a_len = len(algorithms), len(algorithms[list(algorithms.keys())[0]])
+    datas = pd.DataFrame({
+        'step': np.tile(np.arange(a_len), a_cnt),
+        'algorithm': np.repeat(list(algorithms.keys()), a_len),
+        'Rate': itertools.chain.from_iterable(algorithms.values())
+    })
+    fig = plt.figure()
+    plt.title("distributed vs. centerlized")
+    plt.ylabel(f'Average Rate (bps/Hz)')
+    ax = sns.lineplot(data=datas, x='step', y='Rate', hue='algorithm')
+    ax.grid(axis="y")
+    check_and_savefig(figs / f'jsac/B_2.png')
+    plt.close(fig)
+
+@register
+def plot_jsac_C(edata, adata):
+    single = edata['single']
+    duplex = edata['duplex']
+    algorithms = OrderedDict({
+        'S-ES': single['exhausted'],
+        'S-MADQN': single['madqn'],
+        'D-ES': duplex['exhausted'],
+        'D-MADQN': duplex['madqn'],
+    })
+    algorithms = smooth(algorithms)
+    a_cnt, a_len = len(algorithms), len(algorithms[list(algorithms.keys())[0]])
+    datas = pd.DataFrame({
+        'step': np.tile(np.arange(a_len), a_cnt),
+        'algorithm': np.repeat(list(algorithms.keys()), a_len),
+        'Rate': itertools.chain.from_iterable(algorithms.values())
+    })
+    fig = plt.figure()
+    plt.title("single vs. duplex")
+    plt.ylabel(f'Average Rate (bps/Hz)')
+    ax = sns.lineplot(data=datas, x='step', y='Rate', hue='algorithm')
+    ax.grid(axis="y")
+    check_and_savefig(figs / f'jsac/C.png')
+    plt.close(fig)
+
+@register
+def plot_jsac_D(edata, adata):
+    m_state_8 = edata['m_state_8']
+    m_state_16 = edata['m_state_16']
+    m_state_20 = edata['m_state_20']
+    algorithms = OrderedDict({
+        '8-MADQN': m_state_8['madqn'],
+        '16-MADQN': m_state_16['madqn'],
+        '20-MADQN': m_state_20['madqn'],
+        '8-DQN': m_state_8['dqn'],
+        '16-DQN': m_state_16['dqn'],
+        '20-DQN': m_state_20['dqn'],
+        'RR-RND': m_state_20['random']
+    })
+    algorithms = smooth(algorithms)
+    a_cnt, a_len = len(algorithms), len(algorithms[list(algorithms.keys())[0]])
+    datas = pd.DataFrame({
+        'step': np.tile(np.arange(a_len), a_cnt),
+        'algorithm': np.repeat(list(algorithms.keys()), a_len),
+        'Rate': itertools.chain.from_iterable(algorithms.values())
+    })
+    fig = plt.figure()
+    plt.title("m_state changes")
+    plt.ylabel(f'Average Rate (bps/Hz)')
+    ax = sns.lineplot(data=datas, x='step', y='Rate', hue='algorithm')
+    ax.grid(axis="y")
+    check_and_savefig(figs / f'jsac/D.png')
+    plt.close(fig)
+
+@register
+def plot_jsac_E(edata, adata):
+    n_level_10 = edata['n_level_10']
+    n_level_14 = edata['n_level_14']
+    n_level_18 = edata['n_level_18']
+    algorithms = OrderedDict({
+        '10-MADQN': n_level_10['madqn'],
+        '14-MADQN': n_level_14['madqn'],
+        '18-MADQN': n_level_18['madqn'],
+        '10-DQN': n_level_10['dqn'],
+        '14-DQN': n_level_14['dqn'],
+        '18-DQN': n_level_18['dqn'],
+        'RR-RND': n_level_18['random']
+    })
+    algorithms = smooth(algorithms)
+    a_cnt, a_len = len(algorithms), len(algorithms[list(algorithms.keys())[0]])
+    datas = pd.DataFrame({
+        'step': np.tile(np.arange(a_len), a_cnt),
+        'algorithm': np.repeat(list(algorithms.keys()), a_len),
+        'Rate': itertools.chain.from_iterable(algorithms.values())
+    })
+    fig = plt.figure()
+    plt.title("n_level changes")
+    plt.ylabel(f'Average Rate (bps/Hz)')
+    ax = sns.lineplot(data=datas, x='step', y='Rate', hue='algorithm')
+    ax.grid(axis="y")
+    check_and_savefig(figs / f'jsac/E.png')
+    plt.close(fig)
+    
+@register
+def plot_all(edata, adata):
     for name, func in plot_funcs.items():
         if name != 'all':
-            func(all_data)
+            func(edata, adata)
 
 
 if __name__ == "__main__":
     args = get_args()
     all_data = get_all_data(args)
+    events_data = get_events_data(args)
     for attr in dir(args):
         if not attr.startswith('_') and args.__getattribute__(attr):
             func = plot_funcs.get(attr, None)
             if func:
-                func(all_data)
+                func(events_data, all_data)
+
+
+
