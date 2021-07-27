@@ -3,8 +3,8 @@
 """
 @author: Jiawei Wu
 @create time: 2021-03-30 15:11
-@edit time: 2021-04-01 16:50
-@file: /RL4Net-PA-RB/policy_el_ppo_contious.py
+@edit time: 2021-04-01 17:09
+@file: /RL4Net-PA-RB/policy_el_ppo.py
 @desc: 
 """
 
@@ -70,14 +70,6 @@ class DiscrateAgentAdapter(RLAgent, ELAgent):
             action_dim=action_dim
         )
 
-    @property
-    def epsilon(self):
-        return self.explore_rate
-
-    @epsilon.setter
-    def epsilon(self, value):
-        self.explore_rate = value
-
     def add_steps(self, cur_state, action, reward, done, noise):
         """Use el_buffer to simulate agent.add_steps"""
         size = action.shape[0]
@@ -109,9 +101,6 @@ class DiscrateAgentAdapter(RLAgent, ELAgent):
         repeat_times = kwargs.get('repeat_times', self.hypers.repeat_times)
 
         self.eval_step += 1
-
-        if self.eval_step <= batch_size:
-            return None
 
         q_value, loss = self.el_agent.update_net(
             self.el_buffer, target_step, batch_size, repeat_times)

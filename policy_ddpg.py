@@ -13,8 +13,8 @@ import torch
 import numpy as np
 import time
 import gym
-from vvlab.agents import DDPGBase
-from vvlab.models import SimpleActorNet, SimpleCriticNet
+from rl4net.agents import DDPGBase
+from rl4net.models import SimpleActorNet, SimpleCriticNet
 CUDA = torch.cuda.is_available()
 
 

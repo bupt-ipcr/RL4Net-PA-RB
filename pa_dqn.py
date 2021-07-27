@@ -3,18 +3,19 @@
 """
 @author: Jiawei Wu
 @create time: 1970-01-01 08:00
-@edit time: 2020-12-28 10:45
-@file: /PA/pa_dqn.py
+@edit time: 2021-04-12 22:27
+@file: /RL4Net-PA-RB/pa_dqn.py
 @desc: 
 """
 import utils
 import numpy as np
 from policy_dqn import DQN
+# from policy_el_dqn import DQNAgentAdapter as DQN
 from torch.utils.tensorboard import SummaryWriter
 from benckmarks import cal_benchmarks
 from argparse import ArgumentParser
 import json
-MAX_EPISODES = 1000
+MAX_EPISODES = 700
 DECAY_THRES = 500
 
 
@@ -49,7 +50,7 @@ def dqn_loop(env, agent, logdir):
                     print('EP: ', len(train_his),  'DQN:',
                           np.mean([t['cum_reward'] for t in train_his[-10:]]), info, flush=True)
                 break
-
+    agent.save(episode=MAX_EPISODES)
     # find best ep_his
     train_his.sort(key=lambda o: o['cum_reward'], reverse=True)
     dqn_result = train_his[0]['cum_reward'], train_his[0]['ep_his']

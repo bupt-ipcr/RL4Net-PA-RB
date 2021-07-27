@@ -3,16 +3,16 @@
 """
 @author: Jiawei Wu
 @create time: 2019-12-07 20:17
-@edit time: 2020-12-24 09:34
-@file: /PA/policy_dqn.py
+@edit time: 2021-04-13 22:14
+@file: /RL4Net-PA-RB/policy_dqn.py
 """
 from functools import reduce
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
-from vvlab.agents.DQN_base import DQNBase
-
+from rl4net.agents.DQN_base import DQNBase
+import os
 
 CUDA = torch.cuda.is_available()
 
@@ -30,11 +30,15 @@ class PADQNNet(nn.Module):
         super(PADQNNet, self).__init__()
         self.card_no = card_no
         self.seq = nn.Sequential(
-            nn.Linear(n_states, 128),
+            nn.Linear(n_states, 256),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(256, 512),
             nn.ReLU(),
-            nn.Linear(64, n_actions),
+            nn.Linear(512, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, n_actions),
             nn.ReLU(),
         )
 
@@ -63,7 +67,8 @@ class DQN(DQNBase):
     def add_steps(self, cur_state, action, reward, done, next_state):
         size = action.shape[0]
         for i in range(size):
-            self.add_step(cur_state[i], action[i], reward[i], done, next_state[i])
+            self.add_step(cur_state[i], action[i],
+                          reward[i], done, next_state[i])
 
     def get_action(self, state):
         # 将行向量转为列向量（1 x n_states -> n_states x 1 x 1)
@@ -77,3 +82,60 @@ class DQN(DQNBase):
             state = torch.unsqueeze(torch.FloatTensor(state), 0)
             action_values = self.eval_net.forward(state).cpu()
             return action_values.data.numpy().argmax(axis=2)
+
+    def save(self, episode=None, save_path='./cur_model.pth', append_dict={}):
+        """Save the network parameters of the current model.
+
+        Args:
+          save_path: The save path of the model.
+          append_dict: What needs to be saved in addition to the network model.
+        """
+        states = {
+            'eval_net': self.eval_net.state_dict(),
+            'target_net': self.target_net.state_dict(),
+            'episode': self.episode if episode is None else episode,
+            'eval_step': self.eval_step
+        }
+        states.update(append_dict)
+        torch.save(states, save_path)
+
+
+    def _load(self, save_path):
+        """Load the model parameter.
+
+        Args:
+          save_path: The save path of the model.
+
+        Returns:
+          The loaded model dictionary.
+        """
+        if CUDA:
+            states = torch.load(save_path, map_location=torch.device('cuda'))
+        else:
+            states = torch.load(save_path, map_location=torch.device('cpu'))
+
+        # load network parameters from the model
+        self.eval_net.load_state_dict(states['eval_net'])
+        self.target_net.load_state_dict(states['target_net'])
+
+        # load 'episode' and 'step' from the model
+        self.episode, self.eval_step = states['episode'], states['eval_step']
+        # return states
+        return states
+
+    def load(self, save_path='./cur_model.pth'):
+        """The default implementation of the loaded model.
+
+        Args:
+          save_path: The save path of the model，default is'./cur_model.pth'.
+
+        Returns:
+          Recorded episode value.
+        """
+        print('\033[1;31;40m{}\033[0m'.format('加载模型参数...'))
+        if not os.path.exists(save_path):
+            print('\033[1;31;40m{}\033[0m'.format('没找到保存文件'))
+            return -1
+        else:
+            states = self._load(save_path)
+            return states['episode']

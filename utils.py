@@ -4,7 +4,7 @@ from pathlib import Path
 from functools import wraps
 import numpy as np
 import yaml
-from vvlab.envs.power_allocation import PAEnv_v0, PAEnv_v1
+from rl4net.envs.power_allocation import PAEnv_v0, PAEnv_v1, PAEnv_v2
 from argparse import ArgumentParser
 config_path = 'config.yaml'
 default_config_path = 'default_config.yaml'
@@ -69,7 +69,7 @@ def get_args():
     parser.add_argument('-s', '--seeds', type=int,
                         help='Seed count.', default=100)
     parser.add_argument('-i', '--ignore', action='store_true',
-                        help='Ignore processed seed.', default=True)
+                        help='Ignore processed seed.', default=False)
     args = parser.parse_args()
     env = {}
     for changes in args.env_changes:
@@ -114,7 +114,8 @@ def get_env(**kwargs):
     config = get_config(config_path)
     env_config = config['env']
     env_config.update(kwargs)
-    env = PAEnv_v1(**env_config)
+    env = PAEnv_v2(**env_config)
+    print(f'env.seed is {env.seed}')
     return env
 
 
